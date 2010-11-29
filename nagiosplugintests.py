@@ -10,6 +10,7 @@ class ThresholdParserTests(unittest.TestCase):
     validThresholds = (
         '10',
         '10:',
+        '@10:',
         '~:10',
         '10:20',
         '@10:20',
@@ -25,12 +26,13 @@ class ThresholdParserTests(unittest.TestCase):
 
     # start and end point values of the ranges specified in 'validThresholds'
     validParseThresholdValues = (
-        [0, 10],
-        [10, Maths.INFINITY],
-        [Maths.NEGATIVE_INFINITY, 10],
-        [10, 20],
-        [10, 20],
-        [Maths.NEGATIVE_INFINITY, 10]
+        [0, 10, False],
+        [10, Maths.INFINITY, False],
+        [10, Maths.INFINITY, True],
+        [Maths.NEGATIVE_INFINITY, 10, False],
+        [10, 20, False],
+        [10, 20, True],
+        [Maths.NEGATIVE_INFINITY, 10, True]
     )
 
     # thresholds that should validate but whose high values are lower than their low values
@@ -40,6 +42,17 @@ class ThresholdParserTests(unittest.TestCase):
         '20:10',
         '0:-20'
     )
+
+    # values that should match the given ranges
+    matchingRangeValues = [
+        {'start': 0, 'end': 10, 'invert': False, 'values': [-9999, -10, -1, 11, 20, 9999]},
+        {'start': 10, 'end': Maths.INFINITY, 'invert': False, 'values': [-10, 0, 9]},
+        {'start': 10, 'end': Maths.INFINITY, 'invert': True, 'values': [10, 500, 9999]},
+        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [11, 20, 100]},
+        {'start': 10, 'end': 20, 'invert': False, 'values': [-8, -3, 0, 4, 9, 21, 40]},
+        {'start': 10, 'end': 20, 'invert': True, 'values': [10, 14, 18, 20]},
+        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [-9999, -23, -2, 0, 8, 10]}
+    ]
 
     def testValidThresholdsForValidity(self):
         "Validate method should return True for valid values"
@@ -65,11 +78,13 @@ class ThresholdParserTests(unittest.TestCase):
         i = 0
         for threshold in self.validThresholds:
             try:
-                (start, end) = ThresholdParser.parse(threshold)
+                (start, end, invert_range) = ThresholdParser.parse(threshold)
                 self.assertEquals(self.validParseThresholdValues[i][0], start)
                 self.assertEquals(self.validParseThresholdValues[i][1], end)
+                self.assertEquals(self.validParseThresholdValues[i][2], invert_range)
             except AssertionError, error:
-                raise AssertionError("%s for value %s (start %s, end %s)" % (str(error), threshold, start, end))
+                raise AssertionError("%s for value %s (start %s, end %s, invert_range %s)" % (str(error), threshold,
+                    start, end, invert_range))
 
             i += 1
     
@@ -81,6 +96,15 @@ class ThresholdParserTests(unittest.TestCase):
             except AssertionError, error:
                 raise AssertionError(str(error) + ' for value: ' + threshold)
 
+    def testValueMatchesRange(self):
+        "value_matches_range should return True for values that are in the range"
+        for parameters in self.matchingRangeValues:
+            for value in parameters['values']:
+                try:
+                    self.assertTrue(ThresholdParser.value_matches_range(parameters['start'], parameters['end'],
+                        parameters['invert'], value))
+                except AssertionError, error:
+                    raise AssertionError(str(error) + ' for values: ' + value)
 
 if __name__ == "__main__":
     unittest.main()

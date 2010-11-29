@@ -73,10 +73,24 @@ class ThresholdParser(object):
         return (start, end, invert_range)
 
     @staticmethod
-    def get_status(start, end, alert_inside_range, value):
-        "Returns a boolean indicating whether the supplied value should trigger an alert."
-        print "%s, %s, %s, %s and that's it " % (start, end, alert_inside_range, value)
+    def value_matches_range(start, end, alert_inside_range, value):
+        """
+        Returns a boolean indicating whether the supplied value should trigger an alert.
+        
+        alert_inside_range - if True a value should match if start <= value <= end. 
+            If False, a value should match if value < start or end < value.
+        """
+        if alert_inside_range:
+            # if start == Maths.NEGATIVE_INFINITY, 'value' will always be greater than it.
+            if start == Maths.NEGATIVE_INFINITY or start <= value:
+                # if end == Maths.INFINITY, value will always be less than it
+                if value <= end or end == Maths.INFINITY:
+                    return True
+        else:
+            if (start != Maths.NEGATIVE_INFINITY and value < start) or (end != Maths.INFINITY and value > end):
+                return True
 
+        return False
 
 
 
@@ -108,14 +122,14 @@ class Thresholds(object):
     def value_is_critical(self, value):
         "Returns a boolean indicating whether the given value lies inside the configured critical range"
         try:
-            return ThresholdParser.get_status(self.critical_values[0], self.critical_values[1], self.critical_values[2], value)
+            return ThresholdParser.value_matches_range(self.critical_values[0], self.critical_values[1], self.critical_values[2], value)
         except AttributeError:
             return False
 
     def value_is_warning(self, value):
         "Returns a boolean indicating whether the given value lies inside the configured warning range"
         try:
-            return ThresholdParser.get_status(self.warning_values[0], self.warning_values[1], self.warning_values[2], value)
+            return ThresholdParser.value_matches_range(self.warning_values[0], self.warning_values[1], self.warning_values[2], value)
         except AttributeError:
             return False
 
@@ -129,11 +143,11 @@ class NagiosPlugin(object):
     ## Status codes for Nagios
     STATUS_OK = 0
     STATUS_WARNING = 1
-    STATUS_ERROR = 2
+    STATUS_CRITICAL = 2
     STATUS_UNKNOWN = 3
 
     ## Strings that correspond to the above status codes 
-    STATUS_CODE_STRINGS = ['OK', 'WARNING', 'ERROR', 'UNKNOWN']
+    STATUS_CODE_STRINGS = ['OK', 'WARNING', 'CRITICAL', 'UNKNOWN']
 
     def __init__(self):
         self.status = self.STATUS_UNKNOWN
@@ -149,7 +163,7 @@ class NagiosPlugin(object):
     def _calculate_status(self, value):
         "Returns the status of the service by comparing the given value to the thresholds"
         if self.thresholds.value_is_critical(value):
-            return self.STATUS_ERROR
+            return self.STATUS_CRITICAL
         
         if self.thresholds.value_is_warning(value):
             return self.STATUS_WARNING
