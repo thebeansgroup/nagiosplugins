@@ -54,6 +54,17 @@ class ThresholdParserTests(unittest.TestCase):
         {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [-9999, -23, -2, 0, 8, 10]}
     ]
 
+    # values that should not match the given ranges
+    nonMatchingRangeValues = [
+        {'start': 0, 'end': 10, 'invert': False, 'values': [0, 8, 10]},
+        {'start': 10, 'end': Maths.INFINITY, 'invert': False, 'values': [10, 200, 9999]},
+        {'start': 10, 'end': Maths.INFINITY, 'invert': True, 'values': [-9999, -8, 0, 9]},
+        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [-999, -2, 0, 9, 10]},
+        {'start': 10, 'end': 20, 'invert': False, 'values': [10, 14, 18, 20]},
+        {'start': 10, 'end': 20, 'invert': True, 'values': [-9, -3, 0, 9, 21, 999]},
+        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [11, 22, 9999]}
+    ]
+
     def testValidThresholdsForValidity(self):
         "Validate method should return True for valid values"
         for threshold in self.validThresholds:
@@ -96,12 +107,22 @@ class ThresholdParserTests(unittest.TestCase):
             except AssertionError, error:
                 raise AssertionError(str(error) + ' for value: ' + threshold)
 
-    def testValueMatchesRange(self):
+    def testMatchineValueMatchesRange(self):
         "value_matches_range should return True for values that are in the range"
         for parameters in self.matchingRangeValues:
             for value in parameters['values']:
                 try:
                     self.assertTrue(ThresholdParser.value_matches_range(parameters['start'], parameters['end'],
+                        parameters['invert'], value))
+                except AssertionError, error:
+                    raise AssertionError(str(error) + ' for values: ' + value)
+
+    def testNonMatchineValueMatchesRange(self):
+        "value_matches_range should return False for values that are not in the range"
+        for parameters in self.nonMatchingRangeValues:
+            for value in parameters['values']:
+                try:
+                    self.assertFalse(ThresholdParser.value_matches_range(parameters['start'], parameters['end'],
                         parameters['invert'], value))
                 except AssertionError, error:
                     raise AssertionError(str(error) + ' for values: ' + value)
