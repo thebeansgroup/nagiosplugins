@@ -128,14 +128,14 @@ class MemcachedStats(NagiosPlugin):
 
 
 if __name__ == '__main__':
-    checker = MemcachedStats(sys.argv[1:])
     try:
+        checker = MemcachedStats(sys.argv[1:])
         checker.check()
         status = checker.get_status()
         data = checker.get_output()
         print data
         sys.exit(status)
-    except InvalidStatisticError, e:
+    except (ThresholdValidatorError, InvalidStatisticError), e:
         print e
         sys.exit(NagiosPlugin.STATUS_UNKNOWN)
     except NagiosPluginError, e:

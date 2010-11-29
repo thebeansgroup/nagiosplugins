@@ -1,10 +1,11 @@
 import re
 
-class ThresholdParserError(Exception):
+class NagiosPluginError(Exception):
+    "Base class for plugin errors"
     pass
 
 
-class ThresholdValidatorError(ThresholdParserError):
+class ThresholdValidatorError(NagiosPluginError):
     "Thrown when a threshold fails validation"
     pass
 
@@ -24,20 +25,29 @@ class ThresholdParser(object):
         if re.match(r"^@?((\d+|~):?)?(\d+)?$", string):
             return True
         else:
-            raise ThresholdValidatorError("'%s' is not a valid threshold value" % string)
+            raise ThresholdValidatorError("'%s' is not a valid threshold value." % string)
 
     @staticmethod
     def parse(range):
         """
         Parses a threshold to find the start and end points of the range.
         
-        returns a tuple (start, end) of the range. Values may be integers or 'Maths' constants.
+        returns a tuple (start, end, alert_inside_range). Values may be integers or 'Maths' constants. Tuple
+        values are:
+
+        start - start of the range
+        end - end of the range
+        alert_inside_range - if True a value should match if: start <= value <= end. If False, a value should
+                match if value < start or end < value.
         """
         start = 0
 
         # strip the leading '@' if it's present
         if range.startswith('@'):
+            invert_range = True
             range = range.lstrip('@')
+        else:
+            invert_range = False
 
         # if the string contains a :, split it into low and high values
         if ':' in range:
@@ -60,22 +70,12 @@ class ThresholdParser(object):
         else:
             end = int(range)
 
-        return (start, end)
+        return (start, end, invert_range)
 
-    def invert_range(self, threshold):
-        """
-        Returns whether we should alert if the value is between start and end points
-        (inclusive). If False, we will alert if the value is outside the range (excluding
-        end points).
-        """
-        if threshold.startswith('@'):
-            return True;
-        else:
-            return False;
-
-    def get_status(self, value):
-        "Returns the status code for the configured thresholds and the supplied value."
-        pass
+    @staticmethod
+    def get_status(start, end, alert_inside_range, value):
+        "Returns a boolean indicating whether the supplied value should trigger an alert."
+        print "%s, %s, %s, %s and that's it " % (start, end, alert_inside_range, value)
 
 
 class Thresholds(object):
@@ -105,15 +105,18 @@ class Thresholds(object):
 
     def value_is_critical(self, value):
         "Returns a boolean indicating whether the given value lies inside the configured critical range"
-        return False
+        try:
+            return ThresholdParser.get_status(self.critical_values[0], self.critical_values[1], self.critical_values[2], value)
+        except AttributeError:
+            return False
 
     def value_is_warning(self, value):
         "Returns a boolean indicating whether the given value lies inside the configured warning range"
-        return False
+        try:
+            return ThresholdParser.get_status(self.warning_values[0], self.warning_values[1], self.warning_values[2], value)
+        except AttributeError:
+            return False
 
-class NagiosPluginError(Exception):
-    "Base class for plugin errors"
-    pass
 
 class NagiosPlugin(object):
     """
@@ -142,7 +145,8 @@ class NagiosPlugin(object):
         "Returns the status of the service by comparing the given value to the thresholds"
         if self.thresholds.value_is_critical(value):
             return self.STATUS_ERROR
-        elif self.thresholds.value_is_warning(value):
+        
+        if self.thresholds.value_is_warning(value):
             return self.STATUS_WARNING
 
         return self.STATUS_OK
