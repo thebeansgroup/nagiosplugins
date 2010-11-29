@@ -115,7 +115,7 @@ class ThresholdParserTests(unittest.TestCase):
                     self.assertTrue(ThresholdParser.value_matches_range(parameters['start'], parameters['end'],
                         parameters['invert'], value))
                 except AssertionError, error:
-                    raise AssertionError(str(error) + ' for values: ' + value)
+                    raise AssertionError(str(error) + ' for values: ' + str(value))
 
     def testNonMatchineValueMatchesRange(self):
         "value_matches_range should return False for values that are not in the range"
@@ -125,7 +125,7 @@ class ThresholdParserTests(unittest.TestCase):
                     self.assertFalse(ThresholdParser.value_matches_range(parameters['start'], parameters['end'],
                         parameters['invert'], value))
                 except AssertionError, error:
-                    raise AssertionError(str(error) + ' for values: ' + value)
+                    raise AssertionError(str(error) + ' for values: ' + str(value))
 
 if __name__ == "__main__":
     unittest.main()
