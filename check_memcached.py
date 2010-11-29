@@ -15,6 +15,23 @@ This script requires the following python modules:
 
   * argparse (included with python 2.7, otherwise install with 'easy_install argparse')
   * memcache (install with 'easy_install python-memcached' if easy_install is present)
+
+Notes
+=====
+
+It's useful to monitor the following statistics:
+
+  * uptime
+  * curr_items
+  * total_items
+  * bytes
+  * cmd_get
+  * get_hits - percentage of time delta
+  * total_connections - delta'd by time
+  * cmd_set - delta'd by time
+  * get_misses - delta'd by time
+  * evictions - delta'd by time
+  * bytes_written - delta'd by time
 """
 
 class InvalidStatisticError(NagiosPluginError):
@@ -26,7 +43,7 @@ class MemcachedStats(NagiosPlugin):
     Returns internal statistics from a Memcached instance in a format that can be used
     by Nagios and perfdata.
     """
-    version = '0.1a'
+    VERSION = '0.1'
     SERVICE = 'Memcached'
 
     class Defaults(object):
@@ -49,7 +66,7 @@ class MemcachedStats(NagiosPlugin):
         evictions, gets, sets, total connections, total items, uptime.""")
 
         # standard nagios arguments
-        parser.add_argument('-V', '--version', action='version', version='Version %s, Ally B' % MemcachedStats.version)
+        parser.add_argument('-V', '--version', action='version', version='Version %s, Ally B' % MemcachedStats.VERSION)
         parser.add_argument('-t', '--timeout', type=float, nargs='?', default=MemcachedStats.Defaults.timeout,
             help="""Time in seconds within which the server must return its status, otherwise an error will be returned.
             Default is %d.""" % MemcachedStats.Defaults.timeout)
