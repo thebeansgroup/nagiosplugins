@@ -116,10 +116,18 @@ class NagiosPlugin(object):
     STATUS_ERROR = 2
     STATUS_UNKNOWN = 3
 
+    def __init__(self):
+        self.return_code = self.STATUS_UNKNOWN
+
     def set_thresholds(self, warning, critical):
         "Sets the warning and critical thresholds"
         self.thresholds = Thresholds(warning, critical)
 
     def get_status(self, value):
         "Returns the status of the service by comparing the given value to the thresholds"
-        pass
+        if self.thresholds.value_is_critical(value):
+            return self.STATUS_ERROR
+        elif self.thresholds.value_is_warning(value):
+            return self.STATUS_WARNING
+        else:
+            return STATUS_OK
