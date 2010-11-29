@@ -103,6 +103,17 @@ class Thresholds(object):
             ThresholdParser.validate(self.critical)
             self.critical_values = ThresholdParser.parse(self.critical)
 
+    def value_is_critical(self, value):
+        "Returns a boolean indicating whether the given value lies inside the configured critical range"
+        return False
+
+    def value_is_warning(self, value):
+        "Returns a boolean indicating whether the given value lies inside the configured warning range"
+        return False
+
+class NagiosPluginError(Exception):
+    "Base class for plugin errors"
+    pass
 
 class NagiosPlugin(object):
     """
@@ -117,17 +128,25 @@ class NagiosPlugin(object):
     STATUS_UNKNOWN = 3
 
     def __init__(self):
-        self.return_code = self.STATUS_UNKNOWN
+        self.status = self.STATUS_UNKNOWN
 
     def set_thresholds(self, warning, critical):
         "Sets the warning and critical thresholds"
         self.thresholds = Thresholds(warning, critical)
 
-    def get_status(self, value):
+    def get_status(self):
+        "Returns the nagios status code for the latest check."
+        return self.status
+
+    def _calculate_status(self, value):
         "Returns the status of the service by comparing the given value to the thresholds"
         if self.thresholds.value_is_critical(value):
             return self.STATUS_ERROR
         elif self.thresholds.value_is_warning(value):
             return self.STATUS_WARNING
-        else:
-            return STATUS_OK
+
+        return self.STATUS_OK
+
+    def get_output(self):
+        "Returns an output string for nagios"
+        return "sample output"

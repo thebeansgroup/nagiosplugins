@@ -2,7 +2,7 @@
 import argparse
 import sys
 import memcache
-from nagiosplugin import NagiosPlugin
+from nagiosplugin import *
 
 """
 Nagios plugin for checking memcached instances. Returns detailed memcached
@@ -17,6 +17,9 @@ This script requires the following python modules:
   * memcache (install with 'easy_install python-memcached' if easy_install is present)
 """
 
+class InvalidStatisticError(NagiosPluginError):
+    "Indicates that the script was invoked to check a statistic that doesn't exist"
+    pass
 
 class MemcachedStats(NagiosPlugin):
     """
@@ -51,6 +54,7 @@ class MemcachedStats(NagiosPlugin):
             Default is %d.""" % MemcachedStats.Defaults.timeout)
         # warning and critical arguments can take ranges - see:
         # http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
+        parser.add_argument('-v', '--verbose', default=argparse.SUPPRESS, nargs='?', help="Whether to display verbose output")
         parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range")
         parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range")
         parser.add_argument('-H', '--hostname', nargs='?', default=MemcachedStats.Defaults.hostname,
@@ -58,7 +62,7 @@ class MemcachedStats(NagiosPlugin):
             Default is %s.""" % MemcachedStats.Defaults.hostname)
         parser.add_argument('-p', '--port', nargs='?', default=MemcachedStats.Defaults.port, type=int,
             help="""Port on which memcached is listening. Default is %d.""" % MemcachedStats.Defaults.port)
-        parser.add_argument('-s', '--statistic', nargs=1, help="""The statistic to check. Use one of the following
+        parser.add_argument('-s', '--statistic', help="""The statistic to check. Use one of the following
         keywords:
             accepting_conns
             auth_cmds
@@ -100,26 +104,40 @@ class MemcachedStats(NagiosPlugin):
         """)
         return parser.parse_args(opts)
 
-    def get_stats(self):
+    def __get_statistic(self):
         "Gets memcache stats in perfdata format."
         server_stats = self.memcache.get_stats()
 
         # if no stats were returned, return False
         try:
             stats = server_stats[0][1]
-        except KeyError:
+        except IndexError:
+            if 'verbose' in self.args:
+                print "Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running."
             return False
 
-        if self.args.statistic[0] in stats.keys():
-            return "'%s'=%s" % (self.args.statistic[0], stats[self.args.statistic[0]])
+        if self.args.statistic in stats.keys():
+            return "'%s'=%s" % (self.args.statistic, stats[self.args.statistic])
         else:
-            return False
+            raise InvalidStatisticError("No statistic called '%s' was returned by the memcache server." % self.args.statistic)
+
+    def check(self):
+        "Retrieves the required statistic value from memcache, and finds out which status it corresponds to."
+        value = self.__get_statistic()
+        self.status = self._calculate_status(value)
 
 
 if __name__ == '__main__':
     checker = MemcachedStats(sys.argv[1:])
     try:
-        print checker.get_stats()
-    except Exception, e:
-        print "Error:", e
-        sys.exit(3)
+        checker.check()
+        status = checker.get_status()
+        data = checker.get_output()
+        print data
+        sys.exit(status)
+    except InvalidStatisticError, e:
+        print e
+        sys.exit(NagiosPlugin.STATUS_UNKNOWN)
+    except NagiosPluginError, e:
+        print "%s failed unexpectedly. Error was '%s'." % (__file__, str(e))
+        sys.exit(NagiosPlugin.STATUS_UNKNOWN)
