@@ -78,6 +78,8 @@ class ThresholdParser(object):
         print "%s, %s, %s, %s and that's it " % (start, end, alert_inside_range, value)
 
 
+
+
 class Thresholds(object):
     """
     Encapsulates nagios threshold values. Values are validated to make sure
@@ -130,6 +132,9 @@ class NagiosPlugin(object):
     STATUS_ERROR = 2
     STATUS_UNKNOWN = 3
 
+    ## Strings that correspond to the above status codes 
+    STATUS_CODE_STRINGS = ['OK', 'WARNING', 'ERROR', 'UNKNOWN']
+
     def __init__(self):
         self.status = self.STATUS_UNKNOWN
 
@@ -151,6 +156,13 @@ class NagiosPlugin(object):
 
         return self.STATUS_OK
 
+    def _get_statistic(self):
+        "Returns a statistic in perfdata format"
+        pass
+
     def get_output(self):
         "Returns an output string for nagios"
-        return "sample output"
+        statistic = self._get_statistic()
+        output_statistic = statistic.replace("'", '')
+            
+        return "%s %s - %s | %s" % (self.SERVICE, self.STATUS_CODE_STRINGS[self.status], output_statistic, statistic)

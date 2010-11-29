@@ -27,6 +27,7 @@ class MemcachedStats(NagiosPlugin):
     by Nagios and perfdata.
     """
     version = '0.1a'
+    SERVICE = 'Memcached'
 
     class Defaults(object):
         timeout = 3
@@ -104,7 +105,7 @@ class MemcachedStats(NagiosPlugin):
         """)
         return parser.parse_args(opts)
 
-    def __get_statistic(self):
+    def _get_statistic(self):
         "Gets memcache stats in perfdata format."
         server_stats = self.memcache.get_stats()
 
@@ -123,7 +124,7 @@ class MemcachedStats(NagiosPlugin):
 
     def check(self):
         "Retrieves the required statistic value from memcache, and finds out which status it corresponds to."
-        value = self.__get_statistic()
+        value = self._get_statistic()
         self.status = self._calculate_status(value)
 
 
