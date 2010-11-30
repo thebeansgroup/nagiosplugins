@@ -173,10 +173,17 @@ class NagiosPlugin(object):
     def _get_statistic(self):
         "Returns a statistic in perfdata format"
         pass
+    
+    def _format_perfdata(self, statistic, value):
+        "Returns data in perfdata format"
+        return "'%s'=%s" % (statistic, value)
 
     def get_output(self):
-        "Returns an output string for nagios"
-        statistic = self._get_statistic()
+        """
+        Returns an output string for nagios. Prior to calling this method, self.statistic and
+        self.statistic_value should have been set (probably in the 'check' method).
+        """
+        statistic = self._format_perfdata(self.statistic, self.statistic_value)
         output_statistic = statistic.replace("'", '')
             
         return "%s %s - %s | %s" % (self.SERVICE, self.STATUS_CODE_STRINGS[self.status], output_statistic, statistic)

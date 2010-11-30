@@ -2,6 +2,9 @@
 import argparse
 import sys
 import memcache
+import cPickle as pickle
+from UserDict import IterableUserDict
+from time import time
 from nagiosplugin import *
 
 """
@@ -38,6 +41,40 @@ class InvalidStatisticError(NagiosPluginError):
     "Indicates that the script was invoked to check a statistic that doesn't exist"
     pass
 
+
+class TimestampedStatisticCollection(IterableUserDict):
+    "Persistable store for a collection of time-stamped statistics"
+    def __init__(self, path):
+        "Path is the path to persist data to"
+        IterableUserDict.__init__(self)
+        self.path = path
+        self.__load()
+
+    def __load(self):
+        "Loads the data from the store"
+        try:
+            file = open(self.path, 'r+')
+            self.data = pickle.load(file)
+            file.close()
+        except IOError:
+            pass
+
+    def persist(self):
+        """
+        Persists the collection.
+        
+        @throws IOError if it can't write to the file
+        """
+        file = open(self.path, 'w+')
+        pickle.dump(self.data, file)
+        file.close()
+
+    def __setitem__(self, key, value):
+        "Creates a tuple consisting of the current time stamp and the value and stores that tuple under the key."
+        data = {"time": time(), "value": value}
+        return IterableUserDict.__setitem__(self, key, data)
+
+
 class MemcachedStats(NagiosPlugin):
     """
     Returns internal statistics from a Memcached instance in a format that can be used
@@ -45,17 +82,23 @@ class MemcachedStats(NagiosPlugin):
     """
     VERSION = '0.1'
     SERVICE = 'Memcached'
+    ## a constant for a special metric we calculate ourselves
+    CACHE_HITS_PERCENTAGE = 'cache_hits_percentage'
 
     class Defaults(object):
         timeout = 3
         hostname = 'localhost'
         port = 11211
+        delta_file_path = '/var/nagios/check_memcached_plugin_delta'
 
     def __init__(self, opts):
         NagiosPlugin.__init__(self)
         self.args = self.parse_args(opts)
         self.set_thresholds(self.args.warning, self.args.critical)
         self.memcache = memcache.Client(['%s:%d' % (self.args.hostname, self.args.port)])
+
+        if hasattr(self.args, 'delta_time'):
+            self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
 
     def parse_args(self, opts):
         """
@@ -80,6 +123,12 @@ class MemcachedStats(NagiosPlugin):
             Default is %s.""" % MemcachedStats.Defaults.hostname)
         parser.add_argument('-p', '--port', nargs='?', default=MemcachedStats.Defaults.port, type=int,
             help="""Port on which memcached is listening. Default is %d.""" % MemcachedStats.Defaults.port)
+        parser.add_argument('--delta-file', nargs='?', default=MemcachedStats.Defaults.delta_file_path,
+            help="""Path to store statistics between invocations for calculating deltas.
+            Default is: %s""" % MemcachedStats.Defaults.delta_file_path)
+        parser.add_argument('-d', '--delta-time', default=argparse.SUPPRESS, nargs='?',
+            help="""Whether to report changes in values between invocations divided by the time since the
+            last invocation.""")
         parser.add_argument('-s', '--statistic', help="""The statistic to check. Use one of the following
         keywords:
             accepting_conns
@@ -118,12 +167,24 @@ class MemcachedStats(NagiosPlugin):
             total_connections
             total_items
             uptime
-            version
+            version,
+            
+        or the special value:
+            cache_hits_percentage
         """)
         return parser.parse_args(opts)
 
+    def _get_value_from_last_invocation(self):
+        "Returns the value the desired statistic had on the previous invocation of this script."
+        value = {}
+        
+        if self.args.statistic in self.statistic_collection:
+            value = self.statistic_collection[self.args.statistic]
+
+        return value
+
     def _get_statistic(self):
-        "Gets memcache stats in perfdata format."
+        "Returns a tuple containing the name of a statistic and its value ."
         server_stats = self.memcache.get_stats()
 
         # if no stats were returned, return False
@@ -132,17 +193,42 @@ class MemcachedStats(NagiosPlugin):
         except IndexError:
             if 'verbose' in self.args:
                 print "Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running."
-            return False
+            raise NagiosPluginError("Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running.")
 
         if self.args.statistic in stats.keys():
-            return "'%s'=%s" % (self.args.statistic, stats[self.args.statistic])
+            return (self.args.statistic, stats[self.args.statistic])
         else:
             raise InvalidStatisticError("No statistic called '%s' was returned by the memcache server." % self.args.statistic)
 
+    def _string_to_number(self, string):
+        "Converts a numeric string to a number"
+        try:
+            return int(string)
+        except ValueError:
+            return float(string)
+
     def check(self):
         "Retrieves the required statistic value from memcache, and finds out which status it corresponds to."
-        value = self._get_statistic()
-        self.status = self._calculate_status(value)
+        (self.statistic, self.statistic_value) = self._get_statistic()
+
+        if hasattr(self.args, 'delta_time'):
+            old_value = self._get_value_from_last_invocation()
+
+            if 'value' in old_value:
+
+                delta = self._string_to_number(old_value['value']) - self._string_to_number(self.statistic_value)
+                delta_time = time() - old_value['time']
+                self.statistic_collection[self.statistic] = self.statistic_value
+                self.statistic_value = delta / delta_time
+            else:
+                self.statistic_collection[self.statistic] = self.statistic_value
+
+            try:
+                self.statistic_collection.persist()
+            except IOError, error:
+                raise NagiosPluginError("%s.\nProbably means we were unable to write to file %s" % (str(error), self.args.delta_file))
+        
+        self.status = self._calculate_status(self.statistic_value)
 
 
 if __name__ == '__main__':
@@ -157,5 +243,5 @@ if __name__ == '__main__':
         print e
         sys.exit(NagiosPlugin.STATUS_UNKNOWN)
     except NagiosPluginError, e:
-        print "%s failed unexpectedly. Error was '%s'." % (__file__, str(e))
+        print "%s failed unexpectedly. Error was:\n%s" % (__file__, str(e))
         sys.exit(NagiosPlugin.STATUS_UNKNOWN)
