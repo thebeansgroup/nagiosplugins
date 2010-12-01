@@ -191,6 +191,15 @@ class MemcachedStats(NagiosPlugin):
 
         return value
 
+    def _string_to_number(self, string):
+        "Converts a numeric string to a number"
+        try:
+            return int(string)
+        except ValueError:
+            return float(string)
+        except TypeError:
+            return 0
+
     def _get_statistic(self, statistic):
         "Returns a tuple containing the name of the specified statistic and its value."
         if not hasattr(self, 'memcache_statistic'):
@@ -211,22 +220,19 @@ class MemcachedStats(NagiosPlugin):
         else:
             return self.memcache_statistic.get_statistic(statistic, self.args.verbose)
 
-    def _string_to_number(self, string):
-        "Converts a numeric string to a number"
-        try:
-            return int(string)
-        except ValueError:
-            return float(string)
-        except TypeError:
-            return 0
-
     def _get_delta(self, statistic, current_value):
         "Returns the delta for a statistic"
         previous_value = self._get_value_from_last_invocation(statistic)
         delta_value = 0
-        
+
+        # if we're trying to get the delta of the cache_hits_percentage, just divide by delta time since
+        # it's already derived from delta values
+
         try:
-            delta = self._string_to_number(current_value) - self._string_to_number(previous_value['value'])
+            if statistic == self.CACHE_HITS_PERCENTAGE:
+                delta = current_value
+            else:
+                delta = self._string_to_number(current_value) - self._string_to_number(previous_value['value'])
             delta_time = round(time() - previous_value['time'])
             delta_value = round(delta / delta_time, self.args.delta_precision)
         except (KeyError, ZeroDivisionError):
