@@ -96,9 +96,7 @@ class MemcachedStats(NagiosPlugin):
         NagiosPlugin.__init__(self)
         self.args = self.parse_args(opts)
         self.set_thresholds(self.args.warning, self.args.critical)
-
-        if hasattr(self.args, 'delta_time'):
-            self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
+        self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
 
     def parse_args(self, opts):
         """
@@ -179,6 +177,8 @@ class MemcachedStats(NagiosPlugin):
         args = parser.parse_args(opts)
         if 'verbose' not in args:
             args.verbose = False
+        else:
+            args.verbose = True
 
         return args
 
@@ -195,8 +195,21 @@ class MemcachedStats(NagiosPlugin):
         "Returns a tuple containing the name of the specified statistic and its value."
         if not hasattr(self, 'memcache_statistic'):
             self.memcache_statistic = MemcacheStatistic(self.args.hostname, self.args.port)
-            
-        return self.memcache_statistic.get_statistic(statistic, self.args.verbose)
+
+        # calculate the cache hits percentage special statistic
+        if statistic == self.CACHE_HITS_PERCENTAGE:
+            delta_cache_hits = self._string_to_number(self._get_delta('get_hits', self._get_statistic('get_hits')))
+            delta_gets = self._string_to_number(self._get_delta('cmd_get', self._get_statistic('cmd_get')))
+
+            if self.args.verbose:
+                print "delta_cache_hits: %s, delta_gets: %s" % (delta_cache_hits, delta_gets)
+
+            try:
+                return round(delta_cache_hits * 100 / delta_gets, 2)
+            except ZeroDivisionError:
+                return 0
+        else:
+            return self.memcache_statistic.get_statistic(statistic, self.args.verbose)
 
     def _string_to_number(self, string):
         "Converts a numeric string to a number"
@@ -204,18 +217,22 @@ class MemcachedStats(NagiosPlugin):
             return int(string)
         except ValueError:
             return float(string)
+        except TypeError:
+            return 0
 
     def _get_delta(self, statistic, current_value):
         "Returns the delta for a statistic"
         previous_value = self._get_value_from_last_invocation(statistic)
-        delta_value = ''
-        if 'value' in previous_value:
+        delta_value = 0
+        
+        try:
             delta = self._string_to_number(current_value) - self._string_to_number(previous_value['value'])
             delta_time = round(time() - previous_value['time'])
-            self.statistic_collection[statistic] = current_value
             delta_value = round(delta / delta_time, self.args.delta_precision)
-        else:
-            self.statistic_collection[self.statistic] = current_value
+        except (KeyError, ZeroDivisionError):
+            pass
+
+        self.statistic_collection[statistic] = current_value
 
         try:
             self.statistic_collection.persist()
@@ -224,10 +241,10 @@ class MemcachedStats(NagiosPlugin):
 
         return delta_value
 
-
     def check(self):
         "Retrieves the required statistic value from memcache, and finds out which status it corresponds to."
-        (self.statistic, self.statistic_value) = self._get_statistic(self.args.statistic)
+        self.statistic = self.args.statistic
+        self.statistic_value = self._get_statistic(self.statistic)
 
         if hasattr(self.args, 'delta_time'):
             self.statistic_value = self._get_delta(self.statistic, self.statistic_value)
@@ -243,7 +260,7 @@ class MemcacheStatistic(object):
 
     def get_statistic(self, statistic, verbose=False):
         """
-        Returns a tuple containing the name of a statistic and its value.
+        Returns a statistic value.
 
         @param statistic The name of the statistic to retrieve
         @param vebose Whether to display verbose output
@@ -259,7 +276,7 @@ class MemcacheStatistic(object):
             raise NagiosPluginError("Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running.")
 
         if statistic in stats.keys():
-            return (statistic, stats[statistic])
+            return stats[statistic]
         else:
             raise InvalidStatisticError("No statistic called '%s' was returned by the memcache server." % statistic)
 
@@ -270,8 +287,7 @@ if __name__ == '__main__':
         checker = MemcachedStats(sys.argv[1:])
         checker.check()
         status = checker.get_status()
-        data = checker.get_output()
-        print data
+        print checker.get_output()
         sys.exit(status)
     except (ThresholdValidatorError, InvalidStatisticError), e:
         print e
