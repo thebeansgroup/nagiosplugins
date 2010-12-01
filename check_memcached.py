@@ -96,7 +96,6 @@ class MemcachedStats(NagiosPlugin):
         NagiosPlugin.__init__(self)
         self.args = self.parse_args(opts)
         self.set_thresholds(self.args.warning, self.args.critical)
-        self.memcache = memcache.Client(['%s:%d' % (self.args.hostname, self.args.port)])
 
         if hasattr(self.args, 'delta_time'):
             self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
@@ -176,33 +175,28 @@ class MemcachedStats(NagiosPlugin):
         or the special value:
             cache_hits_percentage
         """)
-        return parser.parse_args(opts)
+        
+        args = parser.parse_args(opts)
+        if 'verbose' not in args:
+            args.verbose = False
 
-    def _get_value_from_last_invocation(self):
+        return args
+
+    def _get_value_from_last_invocation(self, statistic):
         "Returns the value the desired statistic had on the previous invocation of this script."
         value = {}
         
-        if self.args.statistic in self.statistic_collection:
-            value = self.statistic_collection[self.args.statistic]
+        if statistic in self.statistic_collection:
+            value = self.statistic_collection[statistic]
 
         return value
 
-    def _get_statistic(self):
-        "Returns a tuple containing the name of a statistic and its value ."
-        server_stats = self.memcache.get_stats()
-
-        # if no stats were returned, raise an Error
-        try:
-            stats = server_stats[0][1]
-        except IndexError:
-            if 'verbose' in self.args:
-                print "Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running."
-            raise NagiosPluginError("Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running.")
-
-        if self.args.statistic in stats.keys():
-            return (self.args.statistic, stats[self.args.statistic])
-        else:
-            raise InvalidStatisticError("No statistic called '%s' was returned by the memcache server." % self.args.statistic)
+    def _get_statistic(self, statistic):
+        "Returns a tuple containing the name of the specified statistic and its value."
+        if not hasattr(self, 'memcache_statistic'):
+            self.memcache_statistic = MemcacheStatistic(self.args.hostname, self.args.port)
+            
+        return self.memcache_statistic.get_statistic(statistic, self.args.verbose)
 
     def _string_to_number(self, string):
         "Converts a numeric string to a number"
@@ -211,33 +205,64 @@ class MemcachedStats(NagiosPlugin):
         except ValueError:
             return float(string)
 
+    def _get_delta(self, statistic, current_value):
+        "Returns the delta for a statistic"
+        previous_value = self._get_value_from_last_invocation(statistic)
+        delta_value = ''
+        if 'value' in previous_value:
+            delta = self._string_to_number(current_value) - self._string_to_number(previous_value['value'])
+            delta_time = round(time() - previous_value['time'])
+            self.statistic_collection[statistic] = current_value
+            delta_value = round(delta / delta_time, self.args.delta_precision)
+        else:
+            self.statistic_collection[self.statistic] = current_value
+
+        try:
+            self.statistic_collection.persist()
+        except IOError, error:
+            raise NagiosPluginError("%s.\nProbably means we were unable to write to file %s" % (str(error), self.args.delta_file))
+
+        return delta_value
+
+
     def check(self):
         "Retrieves the required statistic value from memcache, and finds out which status it corresponds to."
-        (self.statistic, self.statistic_value) = self._get_statistic()
+        (self.statistic, self.statistic_value) = self._get_statistic(self.args.statistic)
 
         if hasattr(self.args, 'delta_time'):
-            old_value = self._get_value_from_last_invocation()
-
-            if 'value' in old_value:
-
-                delta = self._string_to_number(self.statistic_value) - self._string_to_number(old_value['value'])
-                delta_time = round(time() - old_value['time'])
-
-                print delta_time, self.statistic_value, delta
-
-                self.statistic_collection[self.statistic] = self.statistic_value
-                self.statistic_value = round(delta / delta_time, self.args.delta_precision)
-            else:
-                self.statistic_collection[self.statistic] = self.statistic_value
-
-            try:
-                self.statistic_collection.persist()
-            except IOError, error:
-                raise NagiosPluginError("%s.\nProbably means we were unable to write to file %s" % (str(error), self.args.delta_file))
-
+            self.statistic_value = self._get_delta(self.statistic, self.statistic_value)
             self.statistic += '_per_second'
         
         self.status = self._calculate_status(self.statistic_value)
+
+
+class MemcacheStatistic(object):
+    "Returns statistics from a memcache server"
+    def __init__(self, server, port):
+        self.memcache = memcache.Client(['%s:%d' % (server, port)])
+
+    def get_statistic(self, statistic, verbose=False):
+        """
+        Returns a tuple containing the name of a statistic and its value.
+
+        @param statistic The name of the statistic to retrieve
+        @param vebose Whether to display verbose output
+        """
+        server_stats = self.memcache.get_stats()
+
+        # if no stats were returned, raise an Error
+        try:
+            stats = server_stats[0][1]
+        except IndexError:
+            if verbose:
+                print "Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running."
+            raise NagiosPluginError("Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running.")
+
+        if statistic in stats.keys():
+            return (statistic, stats[statistic])
+        else:
+            raise InvalidStatisticError("No statistic called '%s' was returned by the memcache server." % statistic)
+
 
 
 if __name__ == '__main__':
