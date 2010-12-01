@@ -90,6 +90,7 @@ class MemcachedStats(NagiosPlugin):
         hostname = 'localhost'
         port = 11211
         delta_file_path = '/var/nagios/check_memcached_plugin_delta'
+        delta_precision = 2
 
     def __init__(self, opts):
         NagiosPlugin.__init__(self)
@@ -129,6 +130,9 @@ class MemcachedStats(NagiosPlugin):
         parser.add_argument('-d', '--delta-time', default=argparse.SUPPRESS, nargs='?',
             help="""Whether to report changes in values between invocations divided by the time since the
             last invocation.""")
+        parser.add_argument('--delta-precision', nargs='?', default=MemcachedStats.Defaults.delta_precision,
+            help="""Precision to round delta values to when computing per-second values.
+            Default is %s.""" % MemcachedStats.Defaults.delta_precision)
         parser.add_argument('-s', '--statistic', help="""The statistic to check. Use one of the following
         keywords:
             accepting_conns
@@ -187,7 +191,7 @@ class MemcachedStats(NagiosPlugin):
         "Returns a tuple containing the name of a statistic and its value ."
         server_stats = self.memcache.get_stats()
 
-        # if no stats were returned, return False
+        # if no stats were returned, raise an Error
         try:
             stats = server_stats[0][1]
         except IndexError:
@@ -216,10 +220,13 @@ class MemcachedStats(NagiosPlugin):
 
             if 'value' in old_value:
 
-                delta = self._string_to_number(old_value['value']) - self._string_to_number(self.statistic_value)
-                delta_time = time() - old_value['time']
+                delta = self._string_to_number(self.statistic_value) - self._string_to_number(old_value['value'])
+                delta_time = round(time() - old_value['time'])
+
+                print delta_time, self.statistic_value, delta
+
                 self.statistic_collection[self.statistic] = self.statistic_value
-                self.statistic_value = delta / delta_time
+                self.statistic_value = round(delta / delta_time, self.args.delta_precision)
             else:
                 self.statistic_collection[self.statistic] = self.statistic_value
 
@@ -227,6 +234,8 @@ class MemcachedStats(NagiosPlugin):
                 self.statistic_collection.persist()
             except IOError, error:
                 raise NagiosPluginError("%s.\nProbably means we were unable to write to file %s" % (str(error), self.args.delta_file))
+
+            self.statistic += '_per_second'
         
         self.status = self._calculate_status(self.statistic_value)
 
