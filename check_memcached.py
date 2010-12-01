@@ -28,7 +28,7 @@ It's useful to monitor the following statistics:
   * curr_items
   * total_items
   * bytes
-  * cmd_get
+  * cmd_get - delta'd by time
   * get_hits - percentage of time delta
   * total_connections - delta'd by time
   * cmd_set - delta'd by time
