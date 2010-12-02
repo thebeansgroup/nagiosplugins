@@ -207,16 +207,24 @@ class MemcachedStats(NagiosPlugin):
 
         # calculate the cache hits percentage special statistic
         if statistic == self.CACHE_HITS_PERCENTAGE:
-            delta_cache_hits = self._string_to_number(self._get_delta('get_hits', self._get_statistic('get_hits')))
-            delta_gets = self._string_to_number(self._get_delta('cmd_get', self._get_statistic('cmd_get')))
-
-            if self.args.verbose:
-                print "delta_cache_hits: %s, delta_gets: %s" % (delta_cache_hits, delta_gets)
+            get_hits = self._get_statistic('get_hits')
+            cmd_get = self._get_statistic('cmd_get')
+            # use separate values for get_hits and cmd_get compared to ordinary invocations to check those
+            # statistics
+            delta_cache_hits = self._string_to_number(self._get_delta('get_hits_hit_cache_perc', get_hits))
+            delta_gets = self._string_to_number(self._get_delta('cmd_get_hit_cache_perc', cmd_get))
 
             try:
-                return round(delta_cache_hits * 100 / delta_gets, 2)
+                cache_hits_percentage = round(delta_cache_hits * 100 / delta_gets, 2)
             except ZeroDivisionError:
-                return 0
+                cache_hits_percentage = 0
+
+            if self.args.verbose:
+                print "cache hits: %s, gets: %s" % (get_hits, cmd_get)
+                print "delta_cache_hits: %s, delta_gets: %s" % (delta_cache_hits, delta_gets)
+                print "cache hits %%: %s" % (cache_hits_percentage)
+
+            return cache_hits_percentage
         else:
             return self.memcache_statistic.get_statistic(statistic, self.args.verbose)
 
