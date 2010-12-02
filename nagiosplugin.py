@@ -5,6 +5,11 @@ class NagiosPluginError(Exception):
     pass
 
 
+class InvalidStatisticError(NagiosPluginError):
+    "Indicates that the script was invoked to check a statistic that doesn't exist"
+    pass
+
+
 class ThresholdValidatorError(NagiosPluginError):
     "Thrown when a threshold fails validation"
     pass
@@ -134,6 +139,52 @@ class Thresholds(object):
             return False
 
 
+class TimestampedStatisticCollection(IterableUserDict):
+    "Persistable store for a collection of time-stamped statistics"
+    def __init__(self, path):
+        "Path is the path to persist data to"
+        IterableUserDict.__init__(self)
+        self.path = path
+        self.__load()
+
+    def __load(self):
+        "Loads the data from the store"
+        try:
+            file = open(self.path, 'r+')
+            self.data = pickle.load(file)
+            file.close()
+        except IOError:
+            pass
+
+    def persist(self):
+        """
+        Persists the collection.
+
+        @throws IOError if it can't write to the file
+        """
+        file = open(self.path, 'w+')
+        pickle.dump(self.data, file)
+        file.close()
+
+    def __setitem__(self, key, value):
+        "Creates a tuple consisting of the current time stamp and the value and stores that tuple under the key."
+        data = {"time": time(), "value": value}
+        return IterableUserDict.__setitem__(self, key, data)
+
+
+class NumberUtils(object):
+    "Utility methods for working with numbers"
+    @staticmethod
+    def string_to_number(string):
+        "Converts a numeric string to a number"
+        try:
+            return int(string)
+        except ValueError:
+            return float(string)
+        except TypeError:
+            return 0
+
+
 class NagiosPlugin(object):
     """
     Base class for Nagios plugins providing reusable methods such as
@@ -177,6 +228,15 @@ class NagiosPlugin(object):
     def _format_perfdata(self, statistic, value):
         "Returns data in perfdata format"
         return "'%s'=%s" % (statistic, value)
+
+    def _get_value_from_last_invocation(self, statistic):
+        "Returns the value the desired statistic had on the previous invocation of this script."
+        value = {}
+
+        if statistic in self.statistic_collection:
+            value = self.statistic_collection[statistic]
+
+        return value
 
     def get_output(self):
         """
