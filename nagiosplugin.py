@@ -1,4 +1,7 @@
 import re
+import cPickle as pickle
+from time import time
+from UserDict import IterableUserDict
 
 class NagiosPluginError(Exception):
     "Base class for plugin errors"
@@ -7,6 +10,11 @@ class NagiosPluginError(Exception):
 
 class InvalidStatisticError(NagiosPluginError):
     "Indicates that the script was invoked to check a statistic that doesn't exist"
+    pass
+
+
+class UnexpectedResponseError(NagiosPluginError):
+    "Indicates that the script received a response from the service that it didn't expect"
     pass
 
 

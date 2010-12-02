@@ -93,48 +93,48 @@ class MemcachedStats(NagiosPlugin):
         parser.add_argument('--delta-precision', nargs='?', default=MemcachedStats.Defaults.delta_precision,
             help="""Precision to round delta values to when computing per-second values.
             Default is %s.""" % MemcachedStats.Defaults.delta_precision)
-        parser.add_argument('-s', '--statistic', help="""The statistic to check. Use one of the following
-        keywords:
-            accepting_conns
-            auth_cmds
-            auth_errors
-            bytes
-            bytes_read
-            bytes_written
-            cas_badval
-            cas_hits
-            cas_misses
-            cmd_flush
-            cmd_get
-            cmd_set
-            conn_yields
-            connection_structures
-            curr_connections
-            curr_items
-            decr_hits
-            decr_misses
-            delete_hits
-            delete_misses
-            evictions
-            get_hits
-            get_misses
-            incr_hits
-            incr_misses
-            limit_maxbytes
-            listen_disabled_num
-            pid
-            pointer_size
-            rusage_system
-            rusage_user
-            threads
-            time
-            total_connections
-            total_items
-            uptime
-            version,
-            
-        or the special value:
-            cache_hits_percentage
+        parser.add_argument('-s', '--statistic', nargs='?', required=True,
+            help="""The statistic to check. Use one of the following keywords:
+                accepting_conns
+                auth_cmds
+                auth_errors
+                bytes
+                bytes_read
+                bytes_written
+                cas_badval
+                cas_hits
+                cas_misses
+                cmd_flush
+                cmd_get
+                cmd_set
+                conn_yields
+                connection_structures
+                curr_connections
+                curr_items
+                decr_hits
+                decr_misses
+                delete_hits
+                delete_misses
+                evictions
+                get_hits
+                get_misses
+                incr_hits
+                incr_misses
+                limit_maxbytes
+                listen_disabled_num
+                pid
+                pointer_size
+                rusage_system
+                rusage_user
+                threads
+                time
+                total_connections
+                total_items
+                uptime
+                version,
+
+            or the special value:
+                cache_hits_percentage
         """)
         
         args = parser.parse_args(opts)

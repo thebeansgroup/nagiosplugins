@@ -1,9 +1,8 @@
 #!/usr/bin/env python
 import argparse
 import sys
+import re
 import MySQLdb
-import cPickle as pickle
-from UserDict import IterableUserDict
 from time import time
 from nagiosplugin import *
 
@@ -88,6 +87,8 @@ class MySQLStats(NagiosPlugin):
             Default is %s.""" % MySQLStats.Defaults.hostname)
         parser.add_argument('-p', '--port', nargs='?', default=MySQLStats.Defaults.port, type=int,
             help="""Port to connect to. Default is %d.""" % MySQLStats.Defaults.port)
+        parser.add_argument('-u', '--username', nargs='?', help="User name to connect with.", required=True)
+        parser.add_argument('--password', nargs='?', help="Password to connect with.", required=True)
         parser.add_argument('--delta-file', nargs='?', default=MySQLStats.Defaults.delta_file_path,
             help="""Path to store statistics between invocations for calculating deltas.
             Default is: %s""" % MySQLStats.Defaults.delta_file_path)
@@ -98,7 +99,7 @@ class MySQLStats(NagiosPlugin):
             help="""Precision to round delta values to when computing per-second values.
             Default is %s.""" % MySQLStats.Defaults.delta_precision)
         parser.add_argument('-s', '--statistic', help="""The statistic to check. One of the variable names
-        returned by the SHOW STATUS mysql command.""")
+        returned by the SHOW STATUS mysql command.""", nargs='?', required=True)
 
         args = parser.parse_args(opts)
         if 'verbose' not in args:
@@ -111,7 +112,13 @@ class MySQLStats(NagiosPlugin):
     def _get_statistic(self, statistic):
         "Returns a tuple containing the name of the specified statistic and its value."
         if not hasattr(self, 'statistic_retriever'):
-            self.statistic_retriever = MySQLStatistic(self.args.hostname, self.args.port)
+            try:
+                if self.args.verbose:
+                    print "Connecting to database with details: ", self.args
+                self.statistic_retriever = MySQLStatistic(self.args.hostname, self.args.port, self.args.username,
+                    self.args.password, self.args.timeout)
+            except Exception, error:
+                raise NagiosPluginError("Error: %s" % (error))
 
         return self.statistic_retriever.get_statistic(statistic, self.args.verbose)
 
@@ -152,8 +159,9 @@ class MySQLStats(NagiosPlugin):
 
 class MySQLStatistic(object):
     "Returns statistics from a memcache server"
-    def __init__(self, server, port):
-        self.memcache = memcache.Client(['%s:%d' % (server, port)])
+    def __init__(self, host, port, username, password, timeout):
+        self.mysql = MySQLdb.Connect(host=host, port=port, user=username, passwd=password,
+            connect_timeout=timeout)
 
     def get_statistic(self, statistic, verbose=False):
         """
@@ -162,21 +170,29 @@ class MySQLStatistic(object):
         @param statistic The name of the statistic to retrieve
         @param vebose Whether to display verbose output
         """
-        server_stats = self.memcache.get_stats()
+        if not re.match("^[a-z_A-Z]+$", statistic):
+            raise InvalidStatisticError("%s is not a valid statistic name." % statistic)
 
-        # if no stats were returned, raise an Error
-        try:
-            stats = server_stats[0][1]
-        except IndexError:
-            if verbose:
-                print "Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running."
-            raise NagiosPluginError("Unable to connect to memcache server. Check the host and port and make sure \nmemcached is running.")
+        sql = "SHOW STATUS LIKE '%s'" % statistic
 
-        if statistic in stats.keys():
-            return stats[statistic]
-        else:
-            raise InvalidStatisticError("No statistic called '%s' was returned by the memcache server." % statistic)
+        if verbose:
+            print "Executing SQL statement: %s" % sql
 
+        cursor = self.mysql.cursor()
+        cursor.execute(sql)
+
+        stats = cursor.fetchone()
+
+        if not stats:
+            raise UnexpectedResponseError("""Nothing returned for statistic '%s'. Run SHOW STATUS to make sure it's a
+valid statistic name.""" % statistic)
+        elif len(stats) != 2:
+            raise UnexpectedResponseError("Expected 2 responses from the server, received %d" % len(stats))
+
+        if verbose:
+            print "Received: ", stats
+
+        return stats[1]
 
 
 if __name__ == '__main__':
