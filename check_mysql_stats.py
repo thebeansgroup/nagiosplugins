@@ -69,7 +69,7 @@ class MySQLStats(NagiosPlugin):
         Parse given options and arguments
         """
         parser = argparse.ArgumentParser(description="""A Nagios plugin to check MySQL statistics. It
-        can monitor any of the variables returned by the SHOW STATUS command. Supports finding delta values
+        can monitor any of the variables returned by the SHOW GLOBAL STATUS command. Supports finding delta values
         between invocations of this script to get per second delta values.""")
 
         # standard nagios arguments
@@ -99,7 +99,7 @@ class MySQLStats(NagiosPlugin):
             help="""Precision to round delta values to when computing per-second values.
             Default is %s.""" % MySQLStats.Defaults.delta_precision)
         parser.add_argument('-s', '--statistic', help="""The statistic to check. One of the variable names
-        returned by the SHOW STATUS mysql command.""", nargs='?', required=True)
+        returned by the SHOW GLOBAL STATUS mysql command.""", nargs='?', required=True)
 
         args = parser.parse_args(opts)
         if 'verbose' not in args:
@@ -173,7 +173,7 @@ class MySQLStatistic(object):
         if not re.match("^[a-z_A-Z]+$", statistic):
             raise InvalidStatisticError("%s is not a valid statistic name." % statistic)
 
-        sql = "SHOW STATUS LIKE '%s'" % statistic
+        sql = "SHOW GLOBAL STATUS LIKE '%s'" % statistic
 
         if verbose:
             print "Executing SQL statement: %s" % sql
@@ -184,7 +184,7 @@ class MySQLStatistic(object):
         stats = cursor.fetchone()
 
         if not stats:
-            raise UnexpectedResponseError("""Nothing returned for statistic '%s'. Run SHOW STATUS to make sure it's a
+            raise UnexpectedResponseError("""Nothing returned for statistic '%s'. Run SHOW GLOBAL STATUS to make sure it's a
 valid statistic name.""" % statistic)
         elif len(stats) != 2:
             raise UnexpectedResponseError("Expected 2 responses from the server, received %d" % len(stats))
