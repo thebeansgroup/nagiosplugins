@@ -126,10 +126,20 @@ class RAMStatistic(object):
         if not statistic in self.valid_stats:
             raise InvalidStatisticError("%s is not a valid statistic name." % statistic)
 
-        if verbose:
-            print "Executing executing free binary: %s" % self.free
+        command = self.valid_stats[statistic]
 
-        stats = subprocess.Popen(self.free, stdout=subprocess.PIPE).stdout.read()
+        # replace placeholders
+        command = command.replace('%free%', self.free)
+        command = command.replace('%tail%', self.tail)
+        command = command.replace('%head%', self.head)
+        command = command.replace('%awk%', self.awk)
+
+        if verbose:
+            print "Executing command: %s" % command
+
+        stats = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).stdout.read()
+
+        print stats
 
         sys.exit(1)
 
