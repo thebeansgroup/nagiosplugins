@@ -8,3 +8,6 @@ Plugins return data in perfdata format.
 Creating a new plugin is quite simple - just subclass the NagiosPlugin object, then create a method to
 handle parsing command line arguments, and a new class that retrieves the data. See check_mysql_stats.py
 as an example.
+
+Several plugins support returning changes in values between invocations, allow the retrieval of, for example,
+memcached cache hits per second, mysql queries per second, etc.

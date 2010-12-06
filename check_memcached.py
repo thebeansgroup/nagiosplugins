@@ -55,12 +55,6 @@ class MemcachedStats(NagiosPlugin):
         delta_file_path = '/var/nagios/check_memcached_plugin_delta'
         delta_precision = 2
 
-    def __init__(self, opts):
-        NagiosPlugin.__init__(self)
-        self.args = self.parse_args(opts)
-        self.set_thresholds(self.args.warning, self.args.critical)
-        self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
-
     def parse_args(self, opts):
         """
         Parse given options and arguments

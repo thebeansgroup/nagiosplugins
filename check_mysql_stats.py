@@ -45,8 +45,7 @@ It's useful to monitor the following statistics:
 
 class MySQLStats(NagiosPlugin):
     """
-    Returns internal statistics from a Memcached instance in a format that can be used
-    by Nagios and perfdata.
+    Returns internal statistics from a server a format that can be used by Nagios and perfdata.
     """
     VERSION = '0.1'
     SERVICE = 'MySQL'
@@ -57,12 +56,6 @@ class MySQLStats(NagiosPlugin):
         port = 3306
         delta_file_path = '/var/nagios/check_mysql_stats_plugin_delta'
         delta_precision = 2
-
-    def __init__(self, opts):
-        NagiosPlugin.__init__(self)
-        self.args = self.parse_args(opts)
-        self.set_thresholds(self.args.warning, self.args.critical)
-        self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
 
     def parse_args(self, opts):
         """

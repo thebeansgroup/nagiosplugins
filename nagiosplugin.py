@@ -208,8 +208,11 @@ class NagiosPlugin(object):
     ## Strings that correspond to the above status codes 
     STATUS_CODE_STRINGS = ['OK', 'WARNING', 'CRITICAL', 'UNKNOWN']
 
-    def __init__(self):
+    def __init__(self, opts):
         self.status = self.STATUS_UNKNOWN
+        self.args = self.parse_args(opts)
+        self.set_thresholds(self.args.warning, self.args.critical)
+        self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
 
     def set_thresholds(self, warning, critical):
         "Sets the warning and critical thresholds"
