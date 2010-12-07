@@ -100,8 +100,11 @@ class RAMStatistic(object):
         'shared': "%free% | %tail% -n 3 | %head% -n 1 | %awk% '{print $5}'",
         'buffers': "%free% | %tail% -n 3 | %head% -n 1 | %awk% '{print $6}'",
         'cached': "%free% | %tail% -n 3 | %head% -n 1 | %awk% '{print $7}'",
+        'used_less_buffers': "%free% | %tail% -n 2 | %head% -n 1 | %awk% '{print $3}'",
+        'free_plus_cache': "%free% | %tail% -n 2 | %head% -n 1 | %awk% '{print $4}'",
         'swap_total': "%free% | %tail% -n 1 | %awk% '{print $2}' ",
-        'swap_free': "%free% | %tail% -n 1 | %awk% '{print $3}' ",
+        'swap_used': "%free% | %tail% -n 1 | %awk% '{print $3}' ",
+        'swap_free': "%free% | %tail% -n 1 | %awk% '{print $4}' ",
     }
 
     def __init__(self, free_path, tail_path, head_path, awk_path):
@@ -137,22 +140,12 @@ class RAMStatistic(object):
         if verbose:
             print "Executing command: %s" % command
 
-        stats = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).stdout.read()
-
-        print stats
-
-        sys.exit(1)
-
-        if not stats:
-            raise UnexpectedResponseError("""Nothing returned for statistic '%s'. Run SHOW GLOBAL STATUS to make sure it's a
-valid statistic name.""" % statistic)
-        elif len(stats) != 2:
-            raise UnexpectedResponseError("Expected 2 responses from the server, received %d" % len(stats))
+        stats = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True).stdout.read().strip()
 
         if verbose:
-            print "Received: ", stats
+            print "Stats command returned '%s'" % stats
 
-        return stats[1]
+        return stats
 
 
 if __name__ == '__main__':
