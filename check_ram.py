@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import argparse
 import sys
-import shlex
+import textwrap
 import subprocess
 from nagiosplugin import *
 
@@ -41,7 +41,9 @@ class RAM(NagiosPlugin):
         Parse given options and arguments
         """
         parser = argparse.ArgumentParser(description="""A Nagios plugin to check RAM usage. Data is
-            returned in perfdata format.""")
+            returned in perfdata format and is found using the `free` command.""",
+            epilog="""Data is gathered by parsing the output of `free`. For more information on what the figures
+            actually represent, read the `man` page for `free`.""")
 
         # standard nagios arguments
         parser.add_argument('-V', '--version', action='version', version='Version %s, Ally B' % self.VERSION)
@@ -61,7 +63,21 @@ class RAM(NagiosPlugin):
             the path.""", default=self.Defaults.head_path)
         parser.add_argument('--awk-path', nargs='?', help="""Path to `awk` binary. Default is to search
             the path.""", default=self.Defaults.awk_path)
-        parser.add_argument('-s', '--statistic', help="""The statistic to check.""", nargs='?', required=True)
+        parser.add_argument('-s', '--statistic', help=textwrap.dedent("""
+        The statistic to check. Possible values are:
+
+            total,
+            used,
+            free,
+            shared,
+            buffers,
+            cached,
+            used_less_buffers,
+            free_plus_cache,
+            swap_total,
+            swap_used,
+            swap_free
+            """), nargs='?', required=True)
 
         args = parser.parse_args(opts)
         if 'verbose' not in args:
