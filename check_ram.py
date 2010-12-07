@@ -53,8 +53,8 @@ class RAM(NagiosPlugin):
         # warning and critical arguments can take ranges - see:
         # http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
         parser.add_argument('-v', '--verbose', default=argparse.SUPPRESS, nargs='?', help="Whether to display verbose output")
-        parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range")
-        parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range")
+        parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range (kb).")
+        parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range (kb).")
         parser.add_argument('--free-path', nargs='?', help="""Path to `free` binary. Default is to search
             the path.""", default=self.Defaults.free_path)
         parser.add_argument('--tail-path', nargs='?', help="""Path to `tail` binary. Default is to search
