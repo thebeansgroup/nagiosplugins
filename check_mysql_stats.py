@@ -99,8 +99,7 @@ class MySQLStats(NagiosPlugin):
         previous_value = self._get_value_from_last_invocation(statistic)
         delta_value = 0
 
-        # if we're trying to get the delta of the cache_hits_percentage, just divide by delta time since
-        # it's already derived from delta values
+        # calculate delta, catching division by zero errors
         try:
             delta = NumberUtils.string_to_number(current_value) - NumberUtils.string_to_number(previous_value['value'])
             delta_time = round(time() - previous_value['time'])
