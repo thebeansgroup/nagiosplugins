@@ -1,9 +1,6 @@
 #!/usr/bin/env python
-import argparse
 import sys
 import memcache
-import cPickle as pickle
-from UserDict import IterableUserDict
 from time import time
 from nagiosplugin import *
 

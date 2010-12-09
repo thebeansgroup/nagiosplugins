@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import argparse
 import sys
 import textwrap
 import subprocess
@@ -19,10 +18,12 @@ This script requires the following python modules:
 
 class RAM(NagiosPlugin):
     """
-    Returns memory usage in a format that can be used by Nagios and perfdata.
+    A Nagios plugin to check RAM usage. Data is returned in perfdata format and is found using the 
+    `free` command.
     """
     VERSION = '0.1'
     SERVICE = 'RAM'
+    AUTHOR = 'Ally B'
 
     class Defaults(object):
         timeout = 3
@@ -40,21 +41,11 @@ class RAM(NagiosPlugin):
         """
         Parse given options and arguments
         """
-        parser = argparse.ArgumentParser(description="""A Nagios plugin to check RAM usage. Data is
-            returned in perfdata format and is found using the `free` command.""",
-            epilog="""Data is gathered by parsing the output of `free`. For more information on what the figures
-            actually represent, read the `man` page for `free`.""")
+        parser = self._default_parser(description=self.__doc__, version=self.VERSION, author=self.AUTHOR)
 
-        # standard nagios arguments
-        parser.add_argument('-V', '--version', action='version', version='Version %s, Ally B' % self.VERSION)
-        parser.add_argument('-t', '--timeout', type=float, nargs='?', default=self.Defaults.timeout,
-            help="""Time in seconds within which the server must return its status, otherwise an error will be returned.
-            Default is %d.""" % self.Defaults.timeout)
-        # warning and critical arguments can take ranges - see:
-        # http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
-        parser.add_argument('-v', '--verbose', default=argparse.SUPPRESS, nargs='?', help="Whether to display verbose output")
-        parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range (kb).")
-        parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range (kb).")
+        parser.epilog="""Data is gathered by parsing the output of `free`. For more information on what the figures
+            actually represent, read the `man` page for `free`."""
+
         parser.add_argument('--free-path', nargs='?', help="""Path to `free` binary. Default is to search
             the path.""", default=self.Defaults.free_path)
         parser.add_argument('--tail-path', nargs='?', help="""Path to `tail` binary. Default is to search
