@@ -1,4 +1,5 @@
 import re
+import argparse
 import cPickle as pickle
 from time import time
 from UserDict import IterableUserDict
@@ -213,6 +214,58 @@ class NagiosPlugin(object):
         self.args = self.parse_args(opts)
         self.set_thresholds(self.args.warning, self.args.critical)
         self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
+
+    def _default_parser(self, description, version, author, timeout=None, hostname=None,
+            port=None, delta_file_path=None, delta_precision=None):
+        """
+        Returns a default parser with common options that will be needed by most plugins.
+        
+        @param description Description for the parser
+        """
+        parser = argparse.ArgumentParser(description=description)
+
+        # standard nagios arguments
+        parser.add_argument('-V', '--version', action='version', version='Version %s, %s' % (version, author))
+
+        if timeout != None:
+            parser.add_argument('-t', '--timeout', type=float, nargs='?', default=timeout,
+                help="""Time in seconds within which the server must return its status, otherwise an error will be returned.
+                Default is %d.""" % timeout)
+
+
+        # warning and critical arguments can take ranges - see:
+        # http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
+        parser.add_argument('-v', '--verbose', default=argparse.SUPPRESS, nargs='?', help="Whether to display verbose output")
+        parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range")
+        parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range")
+
+        if hostname != None:
+            parser.add_argument('-H', '--hostname', nargs='?', default=hostname,
+                help="""Hostname of the machine to connect to.
+                Default is %s.""" % hostname)
+
+        if port != None:
+            parser.add_argument('-p', '--port', nargs='?', default=port, type=int,
+                help="""Port to connect to host on. Default is %d.""" % port)
+
+        if delta_file_path != None:
+            parser.add_argument('--delta-file', nargs='?', default=delta_file_path,
+                help="""Path to store statistics between invocations for calculating deltas.
+                Default is: %s""" % delta_file_path)
+            parser.add_argument('-d', '--delta-time', default=argparse.SUPPRESS, nargs='?',
+                help="""Whether to report changes in values between invocations divided by the time since the
+                last invocation.""")
+
+            if delta_precision != None:
+                parser.add_argument('--delta-precision', nargs='?', default=delta_precision,
+                    help="""Precision to round delta values to when computing per-second values.
+                    Default is %s.""" % delta_precision)
+            else:
+                raise NagiosPluginError("Delta file path given, but no delta precision. Please set the delta_precision\n"
+                    + "parameter.")
+
+        return parser
+        
 
     def set_thresholds(self, warning, critical):
         "Sets the warning and critical thresholds"

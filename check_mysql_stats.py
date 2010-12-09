@@ -45,10 +45,13 @@ It's useful to monitor the following statistics:
 
 class MySQLStats(NagiosPlugin):
     """
-    Returns internal statistics from a server a format that can be used by Nagios and perfdata.
+    A Nagios plugin to check MySQL statistics. It can monitor any of the variables returned by the
+    SHOW GLOBAL STATUS command. Supports finding delta values between invocations of this script to
+    get changes per second.
     """
     VERSION = '0.1'
     SERVICE = 'MySQL'
+    AUTHOR = 'Ally B'
 
     class Defaults(object):
         timeout = 3
@@ -61,36 +64,13 @@ class MySQLStats(NagiosPlugin):
         """
         Parse given options and arguments
         """
-        parser = argparse.ArgumentParser(description="""A Nagios plugin to check MySQL statistics. It
-        can monitor any of the variables returned by the SHOW GLOBAL STATUS command. Supports finding delta values
-        between invocations of this script to get per second delta values.""")
+        parser = self._default_parser(description=self.__doc__, version=self.VERSION, author=self.AUTHOR,
+            hostname=self.Defaults.hostname, port=self.Defaults.port, delta_file_path=self.Defaults.delta_file_path,
+            delta_precision=self.Defaults.delta_precision)
 
-        # standard nagios arguments
-        parser.add_argument('-V', '--version', action='version', version='Version %s, Ally B' % MySQLStats.VERSION)
-        parser.add_argument('-t', '--timeout', type=float, nargs='?', default=MySQLStats.Defaults.timeout,
-            help="""Time in seconds within which the server must return its status, otherwise an error will be returned.
-            Default is %d.""" % MySQLStats.Defaults.timeout)
-        # warning and critical arguments can take ranges - see:
-        # http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
-        parser.add_argument('-v', '--verbose', default=argparse.SUPPRESS, nargs='?', help="Whether to display verbose output")
-        parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range")
-        parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range")
-        parser.add_argument('-H', '--hostname', nargs='?', default=MySQLStats.Defaults.hostname,
-            help="""Hostname of the machine to connect to.
-            Default is %s.""" % MySQLStats.Defaults.hostname)
-        parser.add_argument('-p', '--port', nargs='?', default=MySQLStats.Defaults.port, type=int,
-            help="""Port to connect to. Default is %d.""" % MySQLStats.Defaults.port)
         parser.add_argument('-u', '--username', nargs='?', help="User name to connect with.", required=True)
         parser.add_argument('--password', nargs='?', help="Password to connect with.", required=True)
-        parser.add_argument('--delta-file', nargs='?', default=MySQLStats.Defaults.delta_file_path,
-            help="""Path to store statistics between invocations for calculating deltas.
-            Default is: %s""" % MySQLStats.Defaults.delta_file_path)
-        parser.add_argument('-d', '--delta-time', default=argparse.SUPPRESS, nargs='?',
-            help="""Whether to report changes in values between invocations divided by the time since the
-            last invocation.""")
-        parser.add_argument('--delta-precision', nargs='?', default=MySQLStats.Defaults.delta_precision,
-            help="""Precision to round delta values to when computing per-second values.
-            Default is %s.""" % MySQLStats.Defaults.delta_precision)
+
         parser.add_argument('-s', '--statistic', help="""The statistic to check. One of the variable names
         returned by the SHOW GLOBAL STATUS mysql command.""", nargs='?', required=True)
 

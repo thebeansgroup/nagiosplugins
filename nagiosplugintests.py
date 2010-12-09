@@ -1,3 +1,4 @@
+#!/bin/env python
 "Unit tests for nagiosplugin"
 
 import unittest

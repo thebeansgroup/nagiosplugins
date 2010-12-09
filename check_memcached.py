@@ -40,11 +40,14 @@ It's useful to monitor the following statistics:
 
 class MemcachedStats(NagiosPlugin):
     """
-    Returns internal statistics from a Memcached instance in a format that can be used
-    by Nagios and perfdata.
+    A Nagios plugin to check memcached statistics. Statistics are returned in perfdata formate.
+    The following can be monitored: bytes used, bytes written, cache hits,
+    cache hits (%), cache misses, number of current items, evictions, gets, sets, total connections,
+    total items, uptime.
     """
     VERSION = '0.1'
     SERVICE = 'Memcached'
+    AUTHOR = 'Ally B'
     ## a constant for a special metric we calculate ourselves
     CACHE_HITS_PERCENTAGE = 'cache_hits_percentage'
 
@@ -59,34 +62,10 @@ class MemcachedStats(NagiosPlugin):
         """
         Parse given options and arguments
         """
-        parser = argparse.ArgumentParser(description="""A Nagios plugin to check memcached statistics. It
-        monitors: bytes used, bytes written, cache hits, cache hits (%), cache misses, number of current items,
-        evictions, gets, sets, total connections, total items, uptime.""")
+        parser = self._default_parser(description=self.__doc__, version=self.VERSION, author=self.AUTHOR,
+            hostname=self.Defaults.hostname, port=self.Defaults.port, delta_file_path=self.Defaults.delta_file_path,
+            delta_precision=self.Defaults.delta_precision)
 
-        # standard nagios arguments
-        parser.add_argument('-V', '--version', action='version', version='Version %s, Ally B' % MemcachedStats.VERSION)
-        parser.add_argument('-t', '--timeout', type=float, nargs='?', default=MemcachedStats.Defaults.timeout,
-            help="""Time in seconds within which the server must return its status, otherwise an error will be returned.
-            Default is %d.""" % MemcachedStats.Defaults.timeout)
-        # warning and critical arguments can take ranges - see:
-        # http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
-        parser.add_argument('-v', '--verbose', default=argparse.SUPPRESS, nargs='?', help="Whether to display verbose output")
-        parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range")
-        parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range")
-        parser.add_argument('-H', '--hostname', nargs='?', default=MemcachedStats.Defaults.hostname,
-            help="""Hostname of the machine running memcached.
-            Default is %s.""" % MemcachedStats.Defaults.hostname)
-        parser.add_argument('-p', '--port', nargs='?', default=MemcachedStats.Defaults.port, type=int,
-            help="""Port on which memcached is listening. Default is %d.""" % MemcachedStats.Defaults.port)
-        parser.add_argument('--delta-file', nargs='?', default=MemcachedStats.Defaults.delta_file_path,
-            help="""Path to store statistics between invocations for calculating deltas.
-            Default is: %s""" % MemcachedStats.Defaults.delta_file_path)
-        parser.add_argument('-d', '--delta-time', default=argparse.SUPPRESS, nargs='?',
-            help="""Whether to report changes in values between invocations divided by the time since the
-            last invocation.""")
-        parser.add_argument('--delta-precision', nargs='?', default=MemcachedStats.Defaults.delta_precision,
-            help="""Precision to round delta values to when computing per-second values.
-            Default is %s.""" % MemcachedStats.Defaults.delta_precision)
         parser.add_argument('-s', '--statistic', nargs='?', required=True,
             help="""The statistic to check. Use one of the following keywords:
                 accepting_conns
