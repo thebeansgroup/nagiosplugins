@@ -106,6 +106,45 @@ class ThresholdParser(object):
 
         return False
 
+    @staticmethod
+    def get_thresholds_for_current_time(warning, critical, time_periods):
+        """
+        Returns the right warning and critical thresholds for the current time.
+
+        @param warning - Comma-separated string of warning thresholds
+        @param critical - comman-separated string of critical thresholds
+        @param time_periods - Comma-separated string of time periods
+
+        @return Two element tuple (warning, critical)
+
+        If commas are present either the warning or critical values, they will be exploded into a list,
+        and the appropriate thresholds will be set depending on the time_periods and the current time.
+        
+        So given:
+          * warning = 3,6,10
+          * time_periods = 08:00-14:00,14:00-00:00,00:00-08:00
+          
+        If the current time is 15:00, the second value, 6, will be passed as the threshold.
+
+        If time periods are supplied but don't cover all 24 hours of a day, an exception will be thrown.
+
+        If multiple threshold values are given, the following must be true when all parameters are split
+        into lists on comma characters:
+
+            len(warning) == len(critical) == len(time_periods)
+        """
+        if ',' in warning or ',' in critical or time_periods != None:
+            warning_values = warning.split(',')
+            critical_values = critical.split(',')
+            time_period_values = time_periods.split(',')
+            
+            
+        else:
+            warning_for_now = warning
+            critical_for_now = critical
+
+        return (warning_for_now, critical_for_now)
+
 
 
 class Thresholds(object):
@@ -236,8 +275,14 @@ class NagiosPlugin(object):
         # warning and critical arguments can take ranges - see:
         # http://nagiosplug.sourceforge.net/developer-guidelines.html#THRESHOLDFORMAT
         parser.add_argument('-v', '--verbose', default=argparse.SUPPRESS, nargs='?', help="Whether to display verbose output")
-        parser.add_argument('-w', '--warning', nargs='?', help="Warning threshold/range")
-        parser.add_argument('-c', '--critical', nargs='?', help="Critical threshold/range")
+        parser.add_argument('-w', '--warning', nargs='?', help="""Warning threshold/range. Multiple,
+            comma-separated values can be entered provided the same number of comma-separated time periods are
+            specified. The first will be used for the first time period, etc.""")
+        parser.add_argument('-c', '--critical', nargs='?', help="""Critical threshold/range. Multiple values can
+            can be entered as for warning values.""")
+        parser.add_argument('--time-periods', nargs='?', help="""Comma-separated time periods that correspond to
+            comma-separated warning and critical thresholds. Values must take the same form as in Nagios, e.g.
+            08:00-14:00,14:00-00:00,00:00-08:00.""")
 
         if hostname != None:
             parser.add_argument('-H', '--hostname', nargs='?', default=hostname,
@@ -267,8 +312,18 @@ class NagiosPlugin(object):
         return parser
         
 
-    def set_thresholds(self, warning, critical):
-        "Sets the warning and critical thresholds"
+    def set_thresholds(self, warning, critical, time_periods=None):
+        """
+        Sets the warning and critical thresholds.
+
+        @param warning - Comma-separated string of warning thresholds
+        @param critical - comman-separated string of critical thresholds
+        @param time_periods - Comma-separated string of time periods
+
+        @see ThresholdParser.get_thresholds_for_current_time for more details on rules for parameter values.
+        """
+        (warning, critical) = ThresholdParser.get_thresholds_for_current_time(warning, critical, time_periods)
+
         self.thresholds = Thresholds(warning, critical)
 
     def get_status(self):
