@@ -23,6 +23,10 @@ class ThresholdValidatorError(NagiosPluginError):
     "Thrown when a threshold fails validation"
     pass
 
+class ThresholdTimePeriodError(NagiosPlugin):
+    "Thrown when there is an error selecting a warning and critical value for a time period"
+    pass
+
 
 class Maths(object):
     "Constants for infinity and negative infinity"
@@ -137,7 +141,20 @@ class ThresholdParser(object):
             warning_values = warning.split(',')
             critical_values = critical.split(',')
             time_period_values = time_periods.split(',')
+
+            if len(warning_values) != len(critical_values):
+                raise ThresholdTimePeriodError("The same number of comma-separated values must be passed in " +
+                    "for both warning and critical thresholds.")
+            elif len(time_period_values) != len(warning_values):
+                raise ThresholdTimePeriodError("There must be the same number of comma-separated time periods " +
+                    "given as there are comma-separated critical/warning thresholds.")
+
+            # the same number of items are in all of the *_values lists
             
+            # make sure that the time periods cover an entire day
+            if not self.time_periods_cover_24_hours(time_period_values):
+                raise ThresholdTimePeriodError("The given time periods don't cover an entire day")
+
             
         else:
             warning_for_now = warning
@@ -145,6 +162,29 @@ class ThresholdParser(object):
 
         return (warning_for_now, critical_for_now)
 
+    @staticmethod
+    def time_periods_cover_24_hours(time_period_values):
+        # sum the times - the total should equal the total number of seconds in the day
+        total_seconds = 0
+
+        for time_period in time_period_values:
+            time_period_list = time_period.split('-')
+
+            if len(time_period_list) != 2:
+                raise ThresholdTimePeriodError("Each time period value must contain a start and end time " +
+                    "separate by a '-' character and be between 00:00-23:59")
+
+            # convert the start and end times to seconds since the epoch
+            try:
+                start_time = time.mktime(time.strptime("1970:" + time_period[0], "%Y:%H:%M"))
+                end_time = time.mktime(time.strptime("1970:" + time_period[1], "%Y:%H:%M"))
+            except (OverflowError, ValueError), e:
+                raise ThresholdTimePeriodError("Invalid time given. Error was: ", str(e))
+
+            if end_time < start_time:
+                raise ThresholdTimePeriodError("End time must be less than the start time.")
+
+            total_seconds += end_time - start_time
 
 
 class Thresholds(object):
