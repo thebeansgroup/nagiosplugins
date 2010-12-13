@@ -237,8 +237,9 @@ class ThresholdParser(object):
                 return i
 
         if current_time_period_index == None:
-            raise ThresholdTimePeriodError("No time period contains the current time (%s). This shouldn't " +
-                "be possible." % (strftime("%H:%M:%S", current_time)))
+            raise ThresholdTimePeriodError("No time period contains the given time (%s). This shouldn't be "
+                "possible." %
+                time.strftime("%H:%M:%S", timestamp_struct))
 
     @staticmethod
     def get_start_and_end_seconds_from_period(time_period):
