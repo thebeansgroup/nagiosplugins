@@ -341,7 +341,7 @@ class NagiosPlugin(object):
     def __init__(self, opts):
         self.status = self.STATUS_UNKNOWN
         self.args = self.parse_args(opts)
-        self.set_thresholds(self.args.warning, self.args.critical)
+        self.set_thresholds(self.args.warning, self.args.critical, self.args.time_periods)
         self.statistic_collection = TimestampedStatisticCollection(self.args.delta_file)
 
     def _default_parser(self, description, version, author, timeout=None, hostname=None,

@@ -2,6 +2,8 @@
 import sys
 import re
 import MySQLdb
+import textwrap
+import os.path
 from time import time
 from nagiosplugin import *
 
@@ -174,8 +176,9 @@ if __name__ == '__main__':
         print checker.get_output()
         sys.exit(status)
     except (ThresholdValidatorError, InvalidStatisticError), e:
-        print e
+        print textwrap.fill(str(e), 80)
         sys.exit(NagiosPlugin.STATUS_UNKNOWN)
     except NagiosPluginError, e:
-        print "%s failed unexpectedly. Error was:\n%s" % (__file__, str(e))
+        print textwrap.fill("%s failed unexpectedly. Error was:" % (os.path.basename(__file__,)), 80)
+        print textwrap.fill(str(e), 80)
         sys.exit(NagiosPlugin.STATUS_UNKNOWN)

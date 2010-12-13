@@ -2,6 +2,7 @@
 import sys
 import textwrap
 import subprocess
+import os.path
 from nagiosplugin import *
 
 """
@@ -35,7 +36,7 @@ class RAM(NagiosPlugin):
     def __init__(self, opts):
         self.status = self.STATUS_UNKNOWN
         self.args = self.parse_args(opts)
-        self.set_thresholds(self.args.warning, self.args.critical)
+        self.set_thresholds(self.args.warning, self.args.critical, self.args.time_periods)
 
     def parse_args(self, opts):
         """
@@ -163,8 +164,9 @@ if __name__ == '__main__':
         print checker.get_output()
         sys.exit(status)
     except (ThresholdValidatorError, InvalidStatisticError), e:
-        print e
+        print textwrap.fill(str(e), 80)
         sys.exit(NagiosPlugin.STATUS_UNKNOWN)
     except NagiosPluginError, e:
-        print "%s failed unexpectedly. Error was:\n%s" % (__file__, str(e))
+        print textwrap.fill("%s failed unexpectedly. Error was:" % (os.path.basename(__file__,)), 80)
+        print textwrap.fill(str(e), 80)
         sys.exit(NagiosPlugin.STATUS_UNKNOWN)
