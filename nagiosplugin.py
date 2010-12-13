@@ -114,13 +114,14 @@ class ThresholdParser(object):
         return False
 
     @staticmethod
-    def get_thresholds_for_current_time(warning, critical, time_periods):
+    def get_thresholds_for_time(warning, critical, time_periods, timestamp):
         """
         Returns the right warning and critical thresholds for the current time.
 
         @param warning - Comma-separated string of warning thresholds
         @param critical - comma-separated string of critical thresholds
         @param time_periods - Comma-separated string of time periods
+        @param timestamp - A time represented as the number of seconds since the epoch to return thresholds for.
 
         @return Two element tuple (warning, critical)
 
@@ -155,19 +156,25 @@ class ThresholdParser(object):
             # the same number of items are in all of the *_values lists
             
             # make sure that the time periods cover an entire day
-            if not self.time_periods_cover_24_hours(time_period_values):
+            if not ThresholdParser.time_periods_cover_24_hours(time_period_values):
                 raise ThresholdTimePeriodError("The given time periods don't cover an entire day")
 
-            # find the current time 
-            current_time = time.mktime(time.strptime("1970:%H:%M", time.stftime("1970:%H:%M")))
+            # work out the number of seconds since the epoch that the given timestamp represents, and
+            # subtract the number of seconds from the epoch to the start of that day.
+            timestamp_struct = time.gmtime(timestamp)
+            current_time = time.mktime(time.strptime(time.strftime("1970:%H:%M", timestamp_struct), "%Y:%H:%M"))
 
             # loop through all time periods, finding the index of the one that the current time is inside
             current_time_period_index = None
             for i in range(len(time_periods)):
-                (start_time, end_time) = self.get_start_and_end_seconds_from_period(time_period[i])
+                (start_time, end_time) = ThresholdParser.get_start_and_end_seconds_from_period(time_period_values[i])
                 if start_time <= current_time and current_time <= end_time:
                     current_time_period_index = i
                     break
+
+            if current_time_period_index == None:
+                raise ThresholdTimePeriodError("No time period contains the current time (%s). This shouldn't " +
+                    "be possible." % (strftime("%H:%M:%S", current_time)))
 
             # assign the warning and critical values with the same indices as the time period matching the
             # current time
@@ -403,9 +410,9 @@ class NagiosPlugin(object):
         @param critical - comman-separated string of critical thresholds
         @param time_periods - Comma-separated string of time periods
 
-        @see ThresholdParser.get_thresholds_for_current_time for more details on rules for parameter values.
+        @see ThresholdParser.get_thresholds_for_time for more details on rules for parameter values.
         """
-        (warning, critical) = ThresholdParser.get_thresholds_for_current_time(warning, critical, time_periods)
+        (warning, critical) = ThresholdParser.get_thresholds_for_time(warning, critical, time_periods, time.time())
 
         self.thresholds = Thresholds(warning, critical)
 

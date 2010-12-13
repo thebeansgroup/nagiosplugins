@@ -1,6 +1,7 @@
 #!/bin/env python
 "Unit tests for nagiosplugin"
 
+import time
 import unittest
 from nagiosplugin import *
 
@@ -91,8 +92,17 @@ class ThresholdParserTests(unittest.TestCase):
         '23:00-12:00,12:00-23:00'
     ]
 
+    # warning and critical thresholds, critical thresholds along with time periods and the current time. We'll
+    # test to make sure the correct warning and critical values are returned.
+    #
+    # Time values are formatted '%Y:%H:%M'. The year must be > 1970
+    thresholdsForTimes = [
+        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+            'time': '2010:07:56', 'expected_warning': '10', 'expected_critical': '50'},
+    ]
+
     def testValidThresholdsForValidity(self):
-        "Validate method should return True for valid values"
+        "Validate method returns True for valid values"
         for threshold in self.validThresholds:
             try:
                 self.assertTrue(ThresholdParser.validate(threshold))
@@ -100,7 +110,7 @@ class ThresholdParserTests(unittest.TestCase):
                 raise AssertionError(str(error) + ' for value: ' + threshold)
 
     def testInvalidThresholdsForValidity(self):
-        "Validate method should raise a ThresholdValidatorError for invalid values"
+        "Validate method raises a ThresholdValidatorError for invalid values"
         for threshold in self.invalidThresholds:
             try:
                 # we need a lamda here or else the Error gets thrown while assertRaises is being
@@ -126,7 +136,7 @@ class ThresholdParserTests(unittest.TestCase):
             i += 1
     
     def testParseInvalidThresholds(self):
-        "Parse method should raise a ThresholdValidatorError if the high value is lower than the low value"
+        "Parse method raises a ThresholdValidatorError if the high value is lower than the low value"
         for threshold in self.invalidParseThresholds:
             try:
                 self.assertRaises(ThresholdValidatorError, lambda: ThresholdParser.parse(threshold))
@@ -134,7 +144,7 @@ class ThresholdParserTests(unittest.TestCase):
                 raise AssertionError(str(error) + ' for value: ' + threshold)
 
     def testMatchineValueMatchesRange(self):
-        "value_matches_range should return True for values that are in the range"
+        "value_matches_range returns True for values that are in the range"
         for parameters in self.matchingRangeValues:
             for value in parameters['values']:
                 try:
@@ -144,7 +154,7 @@ class ThresholdParserTests(unittest.TestCase):
                     raise AssertionError(str(error) + ' for values: ' + str(value))
 
     def testNonMatchineValueMatchesRange(self):
-        "value_matches_range should return False for values that are not in the range"
+        "value_matches_range returns False for values that are not in the range"
         for parameters in self.nonMatchingRangeValues:
             for value in parameters['values']:
                 try:
@@ -154,7 +164,7 @@ class ThresholdParserTests(unittest.TestCase):
                     raise AssertionError(str(error) + ' for values: ' + str(value))
                 
     def testCompleteTimePeriods(self):
-        "time_periods_cover_24_hours should return True for valid time periods that cover an entire day."
+        "time_periods_cover_24_hours returns True for valid time periods that cover an entire day."
         for complete_time_period in self.completeTimePeriods:
             time_period_list = complete_time_period.split(',')
             try:
@@ -163,7 +173,7 @@ class ThresholdParserTests(unittest.TestCase):
                 raise AssertionError(str(error) + ' for time periods: ' + str(time_period_list))
 
     def testIncompleteTimePeriods(self):
-        "time_periods_cover_24_hours should return False for valid time periods that don't cover an entire day."
+        "time_periods_cover_24_hours returns False for valid time periods that don't cover an entire day."
         for incomplete_time_period in self.incompleteTimePeriods:
             time_period_list = incomplete_time_period.split(',')
             try:
@@ -172,7 +182,7 @@ class ThresholdParserTests(unittest.TestCase):
                 raise AssertionError(str(error) + ' for time periods: ' + str(time_period_list))
 
     def testInvalidTimePeriods(self):
-        "time_periods_cover_24_hours should raise a ThresholdTimePeriodError when invalid periods are given."
+        "time_periods_cover_24_hours raises a ThresholdTimePeriodError when invalid periods are given."
         for invalid_time_period in self.invalidTimePeriods:
             time_period_list = invalid_time_period.split(',')
             try:
@@ -180,6 +190,18 @@ class ThresholdParserTests(unittest.TestCase):
                     lambda: ThresholdParser.time_periods_cover_24_hours(time_period_list))
             except AssertionError, error:
                 raise AssertionError(str(error) + ' for value: ' + time_period_list)
+
+    def testGetThresholdsForTime(self):
+        "get_thresholds_for_time returns the correct warning and critical values for a given time."
+        for values in self.thresholdsForTimes:
+            timestamp = time.mktime(time.strptime(values['time'], "%Y:%H:%M"))
+            try:
+                (warning, critical) = ThresholdParser.get_thresholds_for_time(warning=values['warning'], critical=values['critical'],
+                    time_periods=values['time_periods'], timestamp=timestamp)
+                self.assertEquals(warning, values['expected_warning'])
+                self.assertEquals(critical, values['expected_critical'])
+            except AssertionError, error:
+                raise AssertionError(str(error) + ' for values: ' + values)
 
 if __name__ == "__main__":
     unittest.main()
