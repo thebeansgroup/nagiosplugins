@@ -53,7 +53,7 @@ class ThresholdParserTests(unittest.TestCase):
         {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [11, 20, 100]},
         {'start': 10, 'end': 20, 'invert': False, 'values': [-8, -3, 0, 4, 9, 21, 40]},
         {'start': 10, 'end': 20, 'invert': True, 'values': [10, 14, 18, 20]},
-        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [-9999, -23, -2, 0, 8, 10]}
+        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [-9999, -23, -2, 0, 8, 10]},
     ]
 
     # values that should not match the given ranges
@@ -64,7 +64,8 @@ class ThresholdParserTests(unittest.TestCase):
         {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [-999, -2, 0, 9, 10]},
         {'start': 10, 'end': 20, 'invert': False, 'values': [10, 14, 18, 20]},
         {'start': 10, 'end': 20, 'invert': True, 'values': [-9, -3, 0, 9, 21, 999]},
-        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [11, 22, 9999]}
+        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [11, 22, 9999]},
+        {'start': 0, 'end': 80002000, 'invert': False, 'values': ['4449364']},
     ]
 
     # time period definitions that cover 24 hours

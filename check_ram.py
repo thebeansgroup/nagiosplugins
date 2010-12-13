@@ -95,6 +95,10 @@ class RAM(NagiosPlugin):
         "Retrieves the required statistic value from the server, and finds out which status it corresponds to."
         self.statistic = self.args.statistic
         self.statistic_value = self._get_statistic(self.statistic)
+
+        if self.args.verbose:
+            print self.thresholds
+
         self.status = self._calculate_status(self.statistic_value)
 
 

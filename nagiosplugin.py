@@ -27,6 +27,10 @@ class ThresholdTimePeriodError(NagiosPluginError):
     "Thrown when there is an error selecting a warning and critical value for a time period"
     pass
 
+class InvalidParameterError(NagiosPluginError):
+    "Thrown when a parameter is invalid"
+    pass
+
 
 class Maths(object):
     "Constants for infinity and negative infinity"
@@ -101,14 +105,20 @@ class ThresholdParser(object):
         alert_inside_range - if True a value should match if start <= value <= end. 
             If False, a value should match if value < start or end < value.
         """
+
+        try:
+            numeric_value = float(value)
+        except ValueError:
+            raise InvalidParameterError("The value %s is not numeric." % (value,))
+
         if alert_inside_range:
             # if start == Maths.NEGATIVE_INFINITY, 'value' will always be greater than it.
-            if start == Maths.NEGATIVE_INFINITY or start <= value:
+            if start == Maths.NEGATIVE_INFINITY or start <= numeric_value:
                 # if end == Maths.INFINITY, value will always be less than it
-                if value <= end or end == Maths.INFINITY:
+                if numeric_value <= end or end == Maths.INFINITY:
                     return True
         else:
-            if (start != Maths.NEGATIVE_INFINITY and value < start) or (end != Maths.INFINITY and value > end):
+            if (start != Maths.NEGATIVE_INFINITY and numeric_value < start) or (end != Maths.INFINITY and numeric_value > end):
                 return True
 
         return False
@@ -118,8 +128,10 @@ class ThresholdParser(object):
         """
         Returns the right warning and critical thresholds for the current time.
 
-        @param warning - Comma-separated string of warning thresholds
-        @param critical - comma-separated string of critical thresholds
+        @param warning - Comma-separated string of warning thresholds. Pass None if no warning thresholds should
+            be set.
+        @param critical - comma-separated string of critical thresholds. Pass None if no critical thresholds
+            should be set.
         @param time_periods - Comma-separated string of time periods
         @param timestamp - A time represented as the number of seconds since the epoch to return thresholds for.
 
@@ -141,50 +153,92 @@ class ThresholdParser(object):
 
             len(warning) == len(critical) == len(time_periods)
         """
+        if warning == None and critical == None:
+            raise InvalidParameterError("At least one warning or critical threshold is required.")
+
+        if warning == None:
+            warning = ()
+        if critical == None:
+            critical = ()
+
         if ',' in warning or ',' in critical or time_periods != None:
-            warning_values = warning.split(',')
-            critical_values = critical.split(',')
+            try:
+                warning_values = warning.split(',')
+            except AttributeError:
+                warning_values = []
+
+            try:
+                critical_values = critical.split(',')
+            except AttributeError:
+                critical_values = []
+            
             time_period_values = time_periods.split(',')
 
-            if len(warning_values) != len(critical_values):
-                raise ThresholdTimePeriodError("The same number of comma-separated values must be passed in " +
-                    "for both warning and critical thresholds.")
-            elif len(time_period_values) != len(warning_values):
-                raise ThresholdTimePeriodError("There must be the same number of comma-separated time periods " +
-                    "given as there are comma-separated critical/warning thresholds.")
+            # make sure that the number of parameters given matching. Some parameters are optional so this
+            # requires some branching.
+            if len(warning_values) > 0 and len(critical_values) > 0:
+                if len(warning_values) != len(critical_values):
+                    raise ThresholdTimePeriodError("The same number of comma-separated values must be passed in " +
+                        "for both warning and critical thresholds.")
 
-            # the same number of items are in all of the *_values lists
-            
+            if len(warning_values) > 0:
+                if len(time_period_values) != len(warning_values):
+                    raise ThresholdTimePeriodError("There must be the same number of comma-separated time periods " +
+                        "given as there are comma-separated critical/warning thresholds.")
+
+            elif len(critical_values) > 0:
+                if len(time_period_values) != len(critical_values):
+                    raise ThresholdTimePeriodError("There must be the same number of comma-separated time periods " +
+                        "given as there are comma-separated critical/warning thresholds.")
+
             # make sure that the time periods cover an entire day
             if not ThresholdParser.time_periods_cover_24_hours(time_period_values):
                 raise ThresholdTimePeriodError("The given time periods don't cover an entire day")
 
-            # work out the number of seconds since the epoch that the given timestamp represents, and
-            # subtract the number of seconds from the epoch to the start of that day.
-            timestamp_struct = time.gmtime(timestamp)
-            current_time = time.mktime(time.strptime(time.strftime("1970:%H:%M", timestamp_struct), "%Y:%H:%M"))
-
-            # loop through all time periods, finding the index of the one that the current time is inside
-            current_time_period_index = None
-            for i in range(len(time_periods)):
-                (start_time, end_time) = ThresholdParser.get_start_and_end_seconds_from_period(time_period_values[i])
-                if start_time <= current_time and current_time <= end_time:
-                    current_time_period_index = i
-                    break
-
-            if current_time_period_index == None:
-                raise ThresholdTimePeriodError("No time period contains the current time (%s). This shouldn't " +
-                    "be possible." % (strftime("%H:%M:%S", current_time)))
+            current_time_period_index = ThresholdParser.get_time_period_index(time_period_values, timestamp)
 
             # assign the warning and critical values with the same indices as the time period matching the
             # current time
-            warning_for_now = warning_values[current_time_period_index]
-            critical_for_now = critical_values[current_time_period_index]
+            try:
+                warning_for_now = warning_values[current_time_period_index]
+            except IndexError:
+                warning_for_now = None
+
+            try:
+                critical_for_now = critical_values[current_time_period_index]
+            except IndexError:
+                critical_for_now = None
         else:
             warning_for_now = warning
             critical_for_now = critical
 
         return (warning_for_now, critical_for_now)
+        
+    @staticmethod
+    def get_time_period_index(time_period_values, timestamp):
+        ## Given a list of time periods and a timestamp, return the index in the list
+        # that contains the timestamp.
+        #
+        # @param time_periods A list of time periods in Nagios format (between 00:00-24:00)
+        # @param timestamp The number of seconds since the Epoch
+        # @return int The index of an entry in the time_periods list that contains the timestamp
+        # @throws ThresholdTimePeriodError if no element in the time_periods list contains the timestamp
+
+        # work out the number of seconds since the epoch that the given timestamp represents, and
+        # subtract the number of seconds from the epoch to the start of that day.
+        timestamp_struct = time.gmtime(timestamp)
+        current_time = time.mktime(time.strptime(time.strftime("1970:%H:%M", timestamp_struct), "%Y:%H:%M"))
+
+        # loop through all time periods, finding the index of the one that the current time is inside
+        current_time_period_index = None
+        for i in range(len(time_period_values)):
+            (start_time, end_time) = ThresholdParser.get_start_and_end_seconds_from_period(time_period_values[i])
+            if start_time <= current_time and current_time <= end_time:
+                return i
+
+        if current_time_period_index == None:
+            raise ThresholdTimePeriodError("No time period contains the current time (%s). This shouldn't " +
+                "be possible." % (strftime("%H:%M:%S", current_time)))
 
     @staticmethod
     def get_start_and_end_seconds_from_period(time_period):
@@ -251,16 +305,25 @@ class Thresholds(object):
         # validate thresholds to make sure the given values are acceptable
         self._validate_thresholds()
 
+    def __str__(self):
+        return "Threshold object (warning=%s, critical=%s)" % (self.warning, self.critical)
+
     def _validate_thresholds(self):
         "Validates that the given thresholds are OK"
         # first, validate both threshold strings
-        if self.warning != None:
-            ThresholdParser.validate(self.warning)
-            self.warning_values = ThresholdParser.parse(self.warning)
+        try:
+            if len(self.warning) > 0:
+                ThresholdParser.validate(self.warning)
+                self.warning_values = ThresholdParser.parse(self.warning)
+        except TypeError:
+            pass
 
-        if self.critical != None:
-            ThresholdParser.validate(self.critical)
-            self.critical_values = ThresholdParser.parse(self.critical)
+        try:
+            if len(self.critical) > 0:
+                ThresholdParser.validate(self.critical)
+                self.critical_values = ThresholdParser.parse(self.critical)
+        except TypeError:
+            pass
 
     def value_is_critical(self, value):
         "Returns a boolean indicating whether the given value lies inside the configured critical range"
@@ -372,7 +435,7 @@ class NagiosPlugin(object):
             can be entered as for warning values.""")
         parser.add_argument('--time-periods', nargs='?', help="""Comma-separated time periods that correspond to
             comma-separated warning and critical thresholds. Values must take the same form as in Nagios, e.g.
-            08:00-14:00,14:00-24:00,00:00-08:00.""")
+            08:00-14:00,14:00-24:00,00:00-08:00. Note 00:00 and 24:00 can be used interchangeably.""")
 
         if hostname != None:
             parser.add_argument('-H', '--hostname', nargs='?', default=hostname,
@@ -406,8 +469,8 @@ class NagiosPlugin(object):
         """
         Sets the warning and critical thresholds.
 
-        @param warning - Comma-separated string of warning thresholds
-        @param critical - comman-separated string of critical thresholds
+        @param warning - Comma-separated string of warning thresholds, or None if no threshold should be set.
+        @param critical - comman-separated string of critical thresholds, or None if no threshold should be set.
         @param time_periods - Comma-separated string of time periods
 
         @see ThresholdParser.get_thresholds_for_time for more details on rules for parameter values.
