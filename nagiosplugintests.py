@@ -99,6 +99,20 @@ class ThresholdParserTests(unittest.TestCase):
     thresholdsForTimes = [
         {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
             'time': '2010:07:56', 'expected_warning': '10', 'expected_critical': '50'},
+        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+            'time': '2010:11:32', 'expected_warning': '20', 'expected_critical': '60'},
+        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+            'time': '2010:18:32', 'expected_warning': '30', 'expected_critical': '70'},
+    ]
+
+    # Invalid parameter combinations for get_thresholds_for_time
+    invalidParametersForGetThresholdsForTime = [
+        {'warning': '10,20,30', 'critical': '50,60', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+            'time': '2010:07:56', 'expected_warning': '10', 'expected_critical': '50'},
+        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '08:00-16:00,16:00-24:00',
+            'time': '2010:11:32', 'expected_warning': '20', 'expected_critical': '60'},
+        {'warning': '20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+            'time': '2010:18:32', 'expected_warning': '30', 'expected_critical': '70'},
     ]
 
     def testValidThresholdsForValidity(self):
@@ -201,7 +215,19 @@ class ThresholdParserTests(unittest.TestCase):
                 self.assertEquals(warning, values['expected_warning'])
                 self.assertEquals(critical, values['expected_critical'])
             except AssertionError, error:
-                raise AssertionError(str(error) + ' for values: ' + values)
+                raise AssertionError(str(error) + ' for values: ' + str(values))
+
+    def testGetThresholdsForTime(self):
+        "get_thresholds_for_time returns the correct warning and critical values for a given time."
+        for values in self.invalidParametersForGetThresholdsForTime:
+            timestamp = time.mktime(time.strptime(values['time'], "%Y:%H:%M"))
+            try:
+                self.assertRaises(ThresholdTimePeriodError,
+                    lambda: ThresholdParser.get_thresholds_for_time(warning=values['warning'], critical=values['critical'],
+                    time_periods=values['time_periods'], timestamp=timestamp))
+            except AssertionError, error:
+                raise AssertionError(str(error) + ' for values: ' + str(values))
+
 
 if __name__ == "__main__":
     unittest.main()
