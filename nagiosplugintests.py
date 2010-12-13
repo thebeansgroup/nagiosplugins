@@ -229,6 +229,19 @@ class ThresholdParserTests(unittest.TestCase):
             except AssertionError, error:
                 raise AssertionError(str(error) + ' for values: ' + str(values))
 
+    def testGetTimePeriodIndex(self):
+        "get_time_period_index returns the correct index"
+        time_periods = [
+            { 'time_periods': ['00:00-08:00', '08:00-16:00', '16:00-24:00'], 'timestamp': 10, 'expected_index': 0 },
+            { 'time_periods': ['00:00-08:00', '08:00-16:00', '16:00-24:00'], 'timestamp': 29000, 'expected_index': 1 },
+            { 'time_periods': ['00:00-08:00', '08:00-16:00', '16:00-24:00'], 'timestamp': 60000, 'expected_index': 2 },
+        ]
+        for values in time_periods:
+            try:
+                self.assertEquals(ThresholdParser.get_time_period_index(values['time_periods'], values['timestamp']),
+                    values['expected_index'])
+            except AssertionError, error:
+                raise AssertionError(str(error) + ' for values: ' + str(values))
 
 if __name__ == "__main__":
     unittest.main()
