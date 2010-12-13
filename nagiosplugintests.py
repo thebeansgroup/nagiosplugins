@@ -19,103 +19,6 @@ class ThresholdParserTests(unittest.TestCase):
         '@~:10'
     )
 
-    # thresholds that shouldn't validate
-    invalidThresholds = (
-        ':10',
-        'ab:cd',
-        '10:@'
-    )
-
-    # start and end point values of the ranges specified in 'validThresholds'
-    validParseThresholdValues = (
-        [0, 10, False],
-        [10, Maths.INFINITY, False],
-        [10, Maths.INFINITY, True],
-        [Maths.NEGATIVE_INFINITY, 10, False],
-        [10, 20, False],
-        [10, 20, True],
-        [Maths.NEGATIVE_INFINITY, 10, True]
-    )
-
-    # thresholds that should validate but whose high values are lower than their low values
-    # and should therefore fail to parse
-    invalidParseThresholds = (
-        '10:0',
-        '20:10',
-        '0:-20'
-    )
-
-    # values that should match the given ranges
-    matchingRangeValues = [
-        {'start': 0, 'end': 10, 'invert': False, 'values': [-9999, -10, -1, 11, 20, 9999]},
-        {'start': 10, 'end': Maths.INFINITY, 'invert': False, 'values': [-10, 0, 9]},
-        {'start': 10, 'end': Maths.INFINITY, 'invert': True, 'values': [10, 500, 9999]},
-        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [11, 20, 100]},
-        {'start': 10, 'end': 20, 'invert': False, 'values': [-8, -3, 0, 4, 9, 21, 40]},
-        {'start': 10, 'end': 20, 'invert': True, 'values': [10, 14, 18, 20]},
-        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [-9999, -23, -2, 0, 8, 10]},
-    ]
-
-    # values that should not match the given ranges
-    nonMatchingRangeValues = [
-        {'start': 0, 'end': 10, 'invert': False, 'values': [0, 8, 10]},
-        {'start': 10, 'end': Maths.INFINITY, 'invert': False, 'values': [10, 200, 9999]},
-        {'start': 10, 'end': Maths.INFINITY, 'invert': True, 'values': [-9999, -8, 0, 9]},
-        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [-999, -2, 0, 9, 10]},
-        {'start': 10, 'end': 20, 'invert': False, 'values': [10, 14, 18, 20]},
-        {'start': 10, 'end': 20, 'invert': True, 'values': [-9, -3, 0, 9, 21, 999]},
-        {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [11, 22, 9999]},
-        {'start': 0, 'end': 80002000, 'invert': False, 'values': ['4449364']},
-    ]
-
-    # time period definitions that cover 24 hours
-    completeTimePeriods = [
-        '00:00-08:00,08:00-16:00,16:00-24:00',
-        '24:00-12:00,12:00-00:00',
-        '00:00-24:00',
-        '00:00-23:59',
-        '24:00-00:00'
-    ]
-
-    # time period definitions that don't cover 24 hours
-    incompleteTimePeriods = [
-        '00:00-08:00,08:00-16:00,16:00-23:58',
-        '24:00-12:00,13:00-00:00',
-        '00:00-23:00',
-        '00:00-23:00,23:00-24:00,00:00-02:00',
-        '00:01-00:00'
-    ]
-
-    # invalid time period definitions
-    invalidTimePeriods = [
-        '10:00-08:00',
-        '12:00-10:00,13:00-00:00',
-        '23:00-12:00,12:00-23:00'
-    ]
-
-    # warning and critical thresholds, critical thresholds along with time periods and the current time. We'll
-    # test to make sure the correct warning and critical values are returned.
-    #
-    # Time values are formatted '%Y:%H:%M'. The year must be > 1970
-    thresholdsForTimes = [
-        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
-            'time': '2010:07:56', 'expected_warning': '10', 'expected_critical': '50'},
-        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
-            'time': '2010:11:32', 'expected_warning': '20', 'expected_critical': '60'},
-        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
-            'time': '2010:18:32', 'expected_warning': '30', 'expected_critical': '70'},
-    ]
-
-    # Invalid parameter combinations for get_thresholds_for_time
-    invalidParametersForGetThresholdsForTime = [
-        {'warning': '10,20,30', 'critical': '50,60', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
-            'time': '2010:07:56', 'expected_warning': '10', 'expected_critical': '50'},
-        {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '08:00-16:00,16:00-24:00',
-            'time': '2010:11:32', 'expected_warning': '20', 'expected_critical': '60'},
-        {'warning': '20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
-            'time': '2010:18:32', 'expected_warning': '30', 'expected_critical': '70'},
-    ]
-
     def testValidThresholdsForValidity(self):
         "Validate method returns True for valid values"
         for threshold in self.validThresholds:
@@ -126,7 +29,14 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testInvalidThresholdsForValidity(self):
         "Validate method raises a ThresholdValidatorError for invalid values"
-        for threshold in self.invalidThresholds:
+        # thresholds that shouldn't validate
+        invalidThresholds = (
+            ':10',
+            'ab:cd',
+            '10:@'
+        )
+
+        for threshold in invalidThresholds:
             try:
                 # we need a lamda here or else the Error gets thrown while assertRaises is being
                 # evaluated, and therefore before assertRaises can catch the Error. The lambda allows
@@ -137,13 +47,24 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testParseValidThresholds(self):
         "Parses valid thresholds to make sure the correct values are returned"
+        # start and end point values of the ranges specified in 'validThresholds'
+        validParseThresholdValues = (
+            [0, 10, False],
+            [10, Maths.INFINITY, False],
+            [10, Maths.INFINITY, True],
+            [Maths.NEGATIVE_INFINITY, 10, False],
+            [10, 20, False],
+            [10, 20, True],
+            [Maths.NEGATIVE_INFINITY, 10, True]
+        )
+
         i = 0
         for threshold in self.validThresholds:
             try:
                 (start, end, invert_range) = ThresholdParser.parse(threshold)
-                self.assertEquals(self.validParseThresholdValues[i][0], start)
-                self.assertEquals(self.validParseThresholdValues[i][1], end)
-                self.assertEquals(self.validParseThresholdValues[i][2], invert_range)
+                self.assertEquals(validParseThresholdValues[i][0], start)
+                self.assertEquals(validParseThresholdValues[i][1], end)
+                self.assertEquals(validParseThresholdValues[i][2], invert_range)
             except AssertionError, error:
                 raise AssertionError("%s for value %s (start %s, end %s, invert_range %s)" % (str(error), threshold,
                     start, end, invert_range))
@@ -152,7 +73,15 @@ class ThresholdParserTests(unittest.TestCase):
     
     def testParseInvalidThresholds(self):
         "Parse method raises a ThresholdValidatorError if the high value is lower than the low value"
-        for threshold in self.invalidParseThresholds:
+        # thresholds that should validate but whose high values are lower than their low values
+        # and should therefore fail to parse
+        invalidParseThresholds = (
+            '10:0',
+            '20:10',
+            '0:-20'
+        )
+
+        for threshold in invalidParseThresholds:
             try:
                 self.assertRaises(ThresholdValidatorError, lambda: ThresholdParser.parse(threshold))
             except AssertionError, error:
@@ -160,7 +89,18 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testMatchineValueMatchesRange(self):
         "value_matches_range returns True for values that are in the range"
-        for parameters in self.matchingRangeValues:
+        # values that should match the given ranges
+        matchingRangeValues = [
+            {'start': 0, 'end': 10, 'invert': False, 'values': [-9999, -10, -1, 11, 20, 9999]},
+            {'start': 10, 'end': Maths.INFINITY, 'invert': False, 'values': [-10, 0, 9]},
+            {'start': 10, 'end': Maths.INFINITY, 'invert': True, 'values': [10, 500, 9999]},
+            {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [11, 20, 100]},
+            {'start': 10, 'end': 20, 'invert': False, 'values': [-8, -3, 0, 4, 9, 21, 40]},
+            {'start': 10, 'end': 20, 'invert': True, 'values': [10, 14, 18, 20]},
+            {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [-9999, -23, -2, 0, 8, 10]},
+        ]
+
+        for parameters in matchingRangeValues:
             for value in parameters['values']:
                 try:
                     self.assertTrue(ThresholdParser.value_matches_range(parameters['start'], parameters['end'],
@@ -170,7 +110,19 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testNonMatchineValueMatchesRange(self):
         "value_matches_range returns False for values that are not in the range"
-        for parameters in self.nonMatchingRangeValues:
+        # values that should not match the given ranges
+        nonMatchingRangeValues = [
+            {'start': 0, 'end': 10, 'invert': False, 'values': [0, 8, 10]},
+            {'start': 10, 'end': Maths.INFINITY, 'invert': False, 'values': [10, 200, 9999]},
+            {'start': 10, 'end': Maths.INFINITY, 'invert': True, 'values': [-9999, -8, 0, 9]},
+            {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': False, 'values': [-999, -2, 0, 9, 10]},
+            {'start': 10, 'end': 20, 'invert': False, 'values': [10, 14, 18, 20]},
+            {'start': 10, 'end': 20, 'invert': True, 'values': [-9, -3, 0, 9, 21, 999]},
+            {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [11, 22, 9999]},
+            {'start': 0, 'end': 80002000, 'invert': False, 'values': ['4449364']},
+        ]
+
+        for parameters in nonMatchingRangeValues:
             for value in parameters['values']:
                 try:
                     self.assertFalse(ThresholdParser.value_matches_range(parameters['start'], parameters['end'],
@@ -180,7 +132,16 @@ class ThresholdParserTests(unittest.TestCase):
                 
     def testCompleteTimePeriods(self):
         "time_periods_cover_24_hours returns True for valid time periods that cover an entire day."
-        for complete_time_period in self.completeTimePeriods:
+        # time period definitions that cover 24 hours
+        completeTimePeriods = [
+            '00:00-08:00,08:00-16:00,16:00-24:00',
+            '24:00-12:00,12:00-00:00',
+            '00:00-24:00',
+            '00:00-23:59',
+            '24:00-00:00'
+        ]
+
+        for complete_time_period in completeTimePeriods:
             time_period_list = complete_time_period.split(',')
             try:
                 self.assertTrue(ThresholdParser.time_periods_cover_24_hours(time_period_list))
@@ -189,7 +150,16 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testIncompleteTimePeriods(self):
         "time_periods_cover_24_hours returns False for valid time periods that don't cover an entire day."
-        for incomplete_time_period in self.incompleteTimePeriods:
+        # time period definitions that don't cover 24 hours
+        incompleteTimePeriods = [
+            '00:00-08:00,08:00-16:00,16:00-23:58',
+            '24:00-12:00,13:00-00:00',
+            '00:00-23:00',
+            '00:00-23:00,23:00-24:00,00:00-02:00',
+            '00:01-00:00'
+        ]
+
+        for incomplete_time_period in incompleteTimePeriods:
             time_period_list = incomplete_time_period.split(',')
             try:
                 self.assertFalse(ThresholdParser.time_periods_cover_24_hours(time_period_list))
@@ -198,7 +168,14 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testInvalidTimePeriods(self):
         "time_periods_cover_24_hours raises a ThresholdTimePeriodError when invalid periods are given."
-        for invalid_time_period in self.invalidTimePeriods:
+        # invalid time period definitions
+        invalidTimePeriods = [
+            '10:00-08:00',
+            '12:00-10:00,13:00-00:00',
+            '23:00-12:00,12:00-23:00'
+        ]
+
+        for invalid_time_period in invalidTimePeriods:
             time_period_list = invalid_time_period.split(',')
             try:
                 self.assertRaises(ThresholdTimePeriodError,
@@ -208,7 +185,20 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testGetThresholdsForTime(self):
         "get_thresholds_for_time returns the correct warning and critical values for a given time."
-        for values in self.thresholdsForTimes:
+        # warning and critical thresholds, critical thresholds along with time periods and the current time. We'll
+        # test to make sure the correct warning and critical values are returned.
+        #
+        # Time values are formatted '%Y:%H:%M'. The year must be > 1970
+        thresholdsForTimes = [
+            {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+                'time': '2010:07:56', 'expected_warning': '10', 'expected_critical': '50'},
+            {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+                'time': '2010:11:32', 'expected_warning': '20', 'expected_critical': '60'},
+            {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+                'time': '2010:18:32', 'expected_warning': '30', 'expected_critical': '70'},
+        ]
+
+        for values in thresholdsForTimes:
             timestamp = time.mktime(time.strptime(values['time'], "%Y:%H:%M"))
             try:
                 (warning, critical) = ThresholdParser.get_thresholds_for_time(warning=values['warning'], critical=values['critical'],
@@ -220,7 +210,17 @@ class ThresholdParserTests(unittest.TestCase):
 
     def testGetThresholdsForTime(self):
         "get_thresholds_for_time returns the correct warning and critical values for a given time."
-        for values in self.invalidParametersForGetThresholdsForTime:
+        # Invalid parameter combinations for get_thresholds_for_time
+        invalidParametersForGetThresholdsForTime = [
+            {'warning': '10,20,30', 'critical': '50,60', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+                'time': '2010:07:56', 'expected_warning': '10', 'expected_critical': '50'},
+            {'warning': '10,20,30', 'critical': '50,60,70', 'time_periods': '08:00-16:00,16:00-24:00',
+                'time': '2010:11:32', 'expected_warning': '20', 'expected_critical': '60'},
+            {'warning': '20,30', 'critical': '50,60,70', 'time_periods': '00:00-08:00,08:00-16:00,16:00-24:00',
+                'time': '2010:18:32', 'expected_warning': '30', 'expected_critical': '70'},
+        ]
+
+        for values in invalidParametersForGetThresholdsForTime:
             timestamp = time.mktime(time.strptime(values['time'], "%Y:%H:%M"))
             try:
                 self.assertRaises(ThresholdTimePeriodError,
