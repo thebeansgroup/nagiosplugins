@@ -1,7 +1,7 @@
 import re
 import argparse
 import cPickle as pickle
-from time import time
+import time
 from UserDict import IterableUserDict
 
 class NagiosPluginError(Exception):
@@ -23,7 +23,7 @@ class ThresholdValidatorError(NagiosPluginError):
     "Thrown when a threshold fails validation"
     pass
 
-class ThresholdTimePeriodError(NagiosPlugin):
+class ThresholdTimePeriodError(NagiosPluginError):
     "Thrown when there is an error selecting a warning and critical value for a time period"
     pass
 
@@ -36,6 +36,9 @@ class Maths(object):
 
 class ThresholdParser(object):
     "Utility class for validating and parsing nagios threshold strings"
+
+    ## The number of seconds in a day minus one minute
+    SECONDS_IN_A_DAY_MINUS_ONE_MINUTE = 86340
 
     @staticmethod
     def validate(string):
@@ -126,7 +129,7 @@ class ThresholdParser(object):
         
         So given:
           * warning = 3,6,10
-          * time_periods = 08:00-14:00,14:00-00:00,00:00-08:00
+          * time_periods = 08:00-14:00,14:00-24:00,00:00-08:00
           
         If the current time is 15:00, the second value, 6, will be passed as the threshold.
 
@@ -155,6 +158,7 @@ class ThresholdParser(object):
             if not self.time_periods_cover_24_hours(time_period_values):
                 raise ThresholdTimePeriodError("The given time periods don't cover an entire day")
 
+# assign the right warning and critical values for the current time
             
         else:
             warning_for_now = warning
@@ -164,7 +168,10 @@ class ThresholdParser(object):
 
     @staticmethod
     def time_periods_cover_24_hours(time_period_values):
-        # sum the times - the total should equal the total number of seconds in the day
+        ## Sums the number of seconds in the given time periods. The total should equal the total number of
+        # seconds in a day.
+        #
+        # @param time_period_values List of individual time periods
         total_seconds = 0
 
         for time_period in time_period_values:
@@ -172,19 +179,30 @@ class ThresholdParser(object):
 
             if len(time_period_list) != 2:
                 raise ThresholdTimePeriodError("Each time period value must contain a start and end time " +
-                    "separate by a '-' character and be between 00:00-23:59")
+                    "separate by a '-' character and be between 00:00-24:00")
+
+            start_time = time_period_list[0]
+            end_time = time_period_list[1]
+
+            # convert 24:00 to 00:00 if it's the start time, or else change it to 23:59 if it's the end time
+            if start_time == "24:00":
+                start_time = "00:00"
+            if end_time == "24:00" or end_time == "00:00":
+                end_time = "23:59"
 
             # convert the start and end times to seconds since the epoch
             try:
-                start_time = time.mktime(time.strptime("1970:" + time_period[0], "%Y:%H:%M"))
-                end_time = time.mktime(time.strptime("1970:" + time_period[1], "%Y:%H:%M"))
+                start_time = time.mktime(time.strptime("1970:" + start_time, "%Y:%H:%M"))
+                end_time = time.mktime(time.strptime("1970:" + end_time, "%Y:%H:%M"))
             except (OverflowError, ValueError), e:
                 raise ThresholdTimePeriodError("Invalid time given. Error was: ", str(e))
 
             if end_time < start_time:
-                raise ThresholdTimePeriodError("End time must be less than the start time.")
+                raise ThresholdTimePeriodError("End time must be greater than the start time.")
 
             total_seconds += end_time - start_time
+
+        return total_seconds == ThresholdParser.SECONDS_IN_A_DAY_MINUS_ONE_MINUTE
 
 
 class Thresholds(object):
@@ -322,7 +340,7 @@ class NagiosPlugin(object):
             can be entered as for warning values.""")
         parser.add_argument('--time-periods', nargs='?', help="""Comma-separated time periods that correspond to
             comma-separated warning and critical thresholds. Values must take the same form as in Nagios, e.g.
-            08:00-14:00,14:00-00:00,00:00-08:00.""")
+            08:00-14:00,14:00-24:00,00:00-08:00.""")
 
         if hostname != None:
             parser.add_argument('-H', '--hostname', nargs='?', default=hostname,

@@ -66,6 +66,30 @@ class ThresholdParserTests(unittest.TestCase):
         {'start': Maths.NEGATIVE_INFINITY, 'end': 10, 'invert': True, 'values': [11, 22, 9999]}
     ]
 
+    # time period definitions that cover 24 hours
+    completeTimePeriods = [
+        '00:00-08:00,08:00-16:00,16:00-24:00',
+        '24:00-12:00,12:00-00:00',
+        '00:00-24:00',
+        '00:00-23:59',
+        '24:00-00:00'
+    ]
+
+    # time period definitions that don't cover 24 hours
+    incompleteTimePeriods = [
+        '00:00-08:00,08:00-16:00,16:00-23:58',
+        '24:00-12:00,13:00-00:00',
+        '00:00-23:00',
+        '00:01-00:00'
+    ]
+
+    # invalid time period definitions
+    invalidTimePeriods = [
+        '10:00-08:00',
+        '12:00-10:00,13:00-00:00',
+        '23:00-12:00,12:00-23:00'
+    ]
+
     def testValidThresholdsForValidity(self):
         "Validate method should return True for valid values"
         for threshold in self.validThresholds:
@@ -127,6 +151,34 @@ class ThresholdParserTests(unittest.TestCase):
                         parameters['invert'], value))
                 except AssertionError, error:
                     raise AssertionError(str(error) + ' for values: ' + str(value))
+                
+    def testCompleteTimePeriods(self):
+        "time_periods_cover_24_hours should return True for valid time periods that cover an entire day."
+        for complete_time_period in self.completeTimePeriods:
+            time_period_list = complete_time_period.split(',')
+            try:
+                self.assertTrue(ThresholdParser.time_periods_cover_24_hours(time_period_list))
+            except AssertionError, error:
+                raise AssertionError(str(error) + ' for time periods: ' + str(time_period_list))
+
+    def testIncompleteTimePeriods(self):
+        "time_periods_cover_24_hours should return False for valid time periods that don't cover an entire day."
+        for incomplete_time_period in self.incompleteTimePeriods:
+            time_period_list = incomplete_time_period.split(',')
+            try:
+                self.assertFalse(ThresholdParser.time_periods_cover_24_hours(time_period_list))
+            except AssertionError, error:
+                raise AssertionError(str(error) + ' for time periods: ' + str(time_period_list))
+
+    def testInvalidTimePeriods(self):
+        "time_periods_cover_24_hours should raise a ThresholdTimePeriodError when invalid periods are given."
+        for invalid_time_period in self.invalidTimePeriods:
+            time_period_list = invalid_time_period.split(',')
+            try:
+                self.assertRaises(ThresholdTimePeriodError,
+                    lambda: ThresholdParser.time_periods_cover_24_hours(time_period_list))
+            except AssertionError, error:
+                raise AssertionError(str(error) + ' for value: ' + time_period_list)
 
 if __name__ == "__main__":
     unittest.main()
