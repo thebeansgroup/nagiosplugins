@@ -119,7 +119,7 @@ class ThresholdParser(object):
         Returns the right warning and critical thresholds for the current time.
 
         @param warning - Comma-separated string of warning thresholds
-        @param critical - comman-separated string of critical thresholds
+        @param critical - comma-separated string of critical thresholds
         @param time_periods - Comma-separated string of time periods
 
         @return Two element tuple (warning, critical)
@@ -158,13 +158,61 @@ class ThresholdParser(object):
             if not self.time_periods_cover_24_hours(time_period_values):
                 raise ThresholdTimePeriodError("The given time periods don't cover an entire day")
 
-# assign the right warning and critical values for the current time
-            
+            # find the current time 
+            current_time = time.mktime(time.strptime("1970:%H:%M", time.stftime("1970:%H:%M")))
+
+            # loop through all time periods, finding the index of the one that the current time is inside
+            current_time_period_index = None
+            for i in range(len(time_periods)):
+                (start_time, end_time) = self.get_start_and_end_seconds_from_period(time_period[i])
+                if start_time <= current_time and current_time <= end_time:
+                    current_time_period_index = i
+                    break
+
+            # assign the warning and critical values with the same indices as the time period matching the
+            # current time
+            warning_for_now = warning_values[current_time_period_index]
+            critical_for_now = critical_values[current_time_period_index]
         else:
             warning_for_now = warning
             critical_for_now = critical
 
         return (warning_for_now, critical_for_now)
+
+    @staticmethod
+    def get_start_and_end_seconds_from_period(time_period):
+        ## Parses a time period string, performs some sanity checks, and returns a tuple containing
+        # the start and end values in seconds
+        #
+        # @return tuple (start_time, end_time) where times are seconds since the epoch.
+        time_period_list = time_period.split('-')
+
+        if len(time_period_list) != 2:
+            raise ThresholdTimePeriodError("Each time period value must contain a start and end time " +
+                "separate by a '-' character and be between 00:00-24:00")
+
+        start_time = time_period_list[0]
+        end_time = time_period_list[1]
+
+        # convert 24:00 to 00:00 if it's the start time, or else change it to 23:59 if it's the end time.
+        # We use 23:59 because it's accepted by strftime. Therefore later we make sure that the total
+        # number of seconds matches the number of seconds in a day minus one minute.
+        if start_time == "24:00":
+            start_time = "00:00"
+        if end_time == "24:00" or end_time == "00:00":
+            end_time = "23:59"
+
+        # convert the start and end times to seconds since the epoch
+        try:
+            start_time = time.mktime(time.strptime("1970:" + start_time, "%Y:%H:%M"))
+            end_time = time.mktime(time.strptime("1970:" + end_time, "%Y:%H:%M"))
+        except (OverflowError, ValueError), e:
+            raise ThresholdTimePeriodError("Invalid time given. Error was: ", str(e))
+
+        if end_time < start_time:
+            raise ThresholdTimePeriodError("End time must be greater than the start time.")
+
+        return (start_time, end_time)
 
     @staticmethod
     def time_periods_cover_24_hours(time_period_values):
@@ -175,30 +223,7 @@ class ThresholdParser(object):
         total_seconds = 0
 
         for time_period in time_period_values:
-            time_period_list = time_period.split('-')
-
-            if len(time_period_list) != 2:
-                raise ThresholdTimePeriodError("Each time period value must contain a start and end time " +
-                    "separate by a '-' character and be between 00:00-24:00")
-
-            start_time = time_period_list[0]
-            end_time = time_period_list[1]
-
-            # convert 24:00 to 00:00 if it's the start time, or else change it to 23:59 if it's the end time
-            if start_time == "24:00":
-                start_time = "00:00"
-            if end_time == "24:00" or end_time == "00:00":
-                end_time = "23:59"
-
-            # convert the start and end times to seconds since the epoch
-            try:
-                start_time = time.mktime(time.strptime("1970:" + start_time, "%Y:%H:%M"))
-                end_time = time.mktime(time.strptime("1970:" + end_time, "%Y:%H:%M"))
-            except (OverflowError, ValueError), e:
-                raise ThresholdTimePeriodError("Invalid time given. Error was: ", str(e))
-
-            if end_time < start_time:
-                raise ThresholdTimePeriodError("End time must be greater than the start time.")
+            (start_time, end_time) = ThresholdParser.get_start_and_end_seconds_from_period(time_period)
 
             total_seconds += end_time - start_time
 
