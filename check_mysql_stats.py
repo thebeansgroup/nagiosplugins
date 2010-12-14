@@ -4,7 +4,7 @@ import re
 import MySQLdb
 import textwrap
 import os.path
-from time import time
+import time
 from nagiosplugin import *
 
 """
@@ -67,11 +67,10 @@ class MySQLStats(NagiosPlugin):
         """
         parser = self._default_parser(description=self.__doc__, version=self.VERSION, author=self.AUTHOR,
             hostname=self.Defaults.hostname, port=self.Defaults.port, delta_file_path=self.Defaults.delta_file_path,
-            delta_precision=self.Defaults.delta_precision)
+            delta_precision=self.Defaults.delta_precision, timeout=self.Defaults.timeout)
 
         parser.add_argument('-u', '--username', nargs='?', help="User name to connect with.", required=True)
         parser.add_argument('--password', nargs='?', help="Password to connect with.", required=True)
-
         parser.add_argument('-s', '--statistic', help="""The statistic to check. One of the variable names
         returned by the SHOW GLOBAL STATUS mysql command.""", nargs='?', required=True)
 
@@ -104,7 +103,7 @@ class MySQLStats(NagiosPlugin):
         # calculate delta, catching division by zero errors
         try:
             delta = NumberUtils.string_to_number(current_value) - NumberUtils.string_to_number(previous_value['value'])
-            delta_time = round(time() - previous_value['time'])
+            delta_time = round(time.time() - previous_value['time'])
             delta_value = round(delta / delta_time, self.args.delta_precision)
         except (KeyError, ZeroDivisionError):
             pass

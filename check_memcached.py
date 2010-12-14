@@ -3,7 +3,7 @@ import sys
 import memcache
 import textwrap
 import os.path
-from time import time
+import time
 from nagiosplugin import *
 
 """
@@ -158,7 +158,7 @@ class MemcachedStats(NagiosPlugin):
                 delta = current_value
             else:
                 delta = NumberUtils.string_to_number(current_value) - NumberUtils.string_to_number(previous_value['value'])
-            delta_time = round(time() - previous_value['time'])
+            delta_time = round(time.time() - previous_value['time'])
             delta_value = round(delta / delta_time, self.args.delta_precision)
         except (KeyError, ZeroDivisionError):
             pass

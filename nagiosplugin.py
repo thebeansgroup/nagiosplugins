@@ -370,7 +370,7 @@ class TimestampedStatisticCollection(IterableUserDict):
 
     def __setitem__(self, key, value):
         "Creates a tuple consisting of the current time stamp and the value and stores that tuple under the key."
-        data = {"time": time(), "value": value}
+        data = {"time": time.time(), "value": value}
         return IterableUserDict.__setitem__(self, key, data)
 
 
