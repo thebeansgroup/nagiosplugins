@@ -476,9 +476,10 @@ class NagiosPlugin(object):
 
         @see ThresholdParser.get_thresholds_for_time for more details on rules for parameter values.
         """
-        (warning, critical) = ThresholdParser.get_thresholds_for_time(warning, critical, time_periods, time.time())
+        if warning or critical:
+            (warning, critical) = ThresholdParser.get_thresholds_for_time(warning, critical, time_periods, time.time())
 
-        self.thresholds = Thresholds(warning, critical)
+            self.thresholds = Thresholds(warning, critical)
 
     def get_status(self):
         "Returns the nagios status code for the latest check."
@@ -486,11 +487,13 @@ class NagiosPlugin(object):
 
     def _calculate_status(self, value):
         "Returns the status of the service by comparing the given value to the thresholds"
-        if self.thresholds.value_is_critical(value):
-            return self.STATUS_CRITICAL
-        
-        if self.thresholds.value_is_warning(value):
-            return self.STATUS_WARNING
+
+        if hasattr(self, 'thresholds'):
+            if self.thresholds.value_is_critical(value):
+                return self.STATUS_CRITICAL
+
+            if self.thresholds.value_is_warning(value):
+                return self.STATUS_WARNING
 
         return self.STATUS_OK
 
